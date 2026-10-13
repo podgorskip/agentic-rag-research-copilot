@@ -1,0 +1,7 @@
+[project]
+name = "agentic-rag-copilot"
+version = "0.1.0"
+description = "Autonomous multi-source Q&A agent over research papers with a self-correcting agentic loop"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
