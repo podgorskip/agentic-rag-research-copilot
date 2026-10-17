@@ -4,10 +4,14 @@ version = "0.1.0"
 description = "Autonomous multi-source Q&A agent over research papers with a self-correcting agentic loop"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.0",
+]
 
 [project.optional-dependencies]
 dev = [
+    "pyright>=1.1.380",
     "ruff>=0.8.0",
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
@@ -58,3 +62,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "\\.\\.\\.",
 ]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+# Allow 'Any' in dictionaries where we don't know the exact schema of external metadata
+reportUnknownArgumentType = false
+reportUnknownMemberType = false
