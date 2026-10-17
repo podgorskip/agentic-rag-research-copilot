@@ -49,11 +49,15 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=src/agentic_rag_copilot --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80"
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80"
 
 [tool.coverage.run]
-source = ["src/agentic_rag_copilot"]
-omit = ["*/__init__.py"]
+source = ["."]
+relative_files = true
+omit = [
+    "tests/*",
+    "*/__init__.py",
+]
 
 [tool.coverage.report]
 exclude_lines = [
