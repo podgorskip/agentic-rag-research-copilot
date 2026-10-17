@@ -1,0 +1,3 @@
+"""Package version specification."""
+
+__version__ = "0.1.0"

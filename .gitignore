@@ -16,5 +16,17 @@ build/
 .idea/
 *.swp
 
+# Testing & Coverage
+.coverage
+htmlcov/
+coverage.xml
+.pytest_cache/
+
+# Ruff
+.ruff_cache/
+
+# Sonar
+.scannerwork/
+
 # macOS
 .DS_Store
