@@ -45,7 +45,7 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=src/agentic_rag_copilot --cov-report=term-missing --cov-fail-under=80"
+addopts = "--cov=src/agentic_rag_copilot --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80"
 
 [tool.coverage.run]
 source = ["src/agentic_rag_copilot"]
