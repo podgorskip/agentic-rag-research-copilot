@@ -1,13 +1,14 @@
 import pytest
 from pydantic import ValidationError
 
-from agentic_rag_copilot.domain.models.api import (
+from agentic_rag_copilot.domain.models import (
     AskRequest,
     AskResponse,
+    Citation,
     IngestRequest,
     IngestResponse,
+    SourceType,
 )
-from agentic_rag_copilot.domain.models.entities import Citation, SourceType
 
 
 def test_ingest_models() -> None:
@@ -28,11 +29,9 @@ def test_ask_request_validation() -> None:
     req = AskRequest(query="Explain Ragas faithfulness.")
     assert req.top_k == 5  # Default
 
-    # top_k out of bounds (le=20)
     with pytest.raises(ValidationError):
         AskRequest(query="Explain Ragas faithfulness.", top_k=50)
 
-    # Empty query
     with pytest.raises(ValidationError):
         AskRequest(query="")
 

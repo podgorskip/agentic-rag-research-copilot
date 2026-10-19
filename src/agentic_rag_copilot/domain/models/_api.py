@@ -2,8 +2,8 @@ from typing import Any
 
 from pydantic import Field
 
-from .base import ImmutableModel
-from .entities import Citation, SourceType
+from ._base import ImmutableModel
+from ._entities import Citation, SourceType
 
 
 class IngestRequest(ImmutableModel):

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from agentic_rag_copilot.domain.models.entities import Chunk, Citation, Document, Query, SourceType
+from agentic_rag_copilot.domain.models import Chunk, Citation, Document, Query, SourceType
 
 
 def test_document_creation_and_immutability() -> None:
@@ -16,22 +16,19 @@ def test_document_creation_and_immutability() -> None:
     assert doc.source_type == SourceType.PDF
     assert doc.metadata == {}
 
-    # Verify frozen=True prevents mutation
     with pytest.raises(ValidationError):
-        doc.title = "Mutated Title"  # type: ignore[misc]
+        doc.title = "Mutated Title"
 
 
 def test_document_strict_validation_fails_on_wrong_types() -> None:
-    # Strict mode should reject an integer for raw_content instead of coercing to str
     with pytest.raises(ValidationError):
         Document(
             id="doc-1",
             source_type=SourceType.HTML,
             source_uri="https://docs.example.com",
-            raw_content=12345,  # type: ignore[arg-type]
+            raw_content=12345,
         )
 
-    # Empty raw_content should fail min_length=1
     with pytest.raises(ValidationError):
         Document(
             id="doc-1",

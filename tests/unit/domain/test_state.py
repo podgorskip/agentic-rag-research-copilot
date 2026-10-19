@@ -1,8 +1,13 @@
 import pytest
 from pydantic import ValidationError
 
-from agentic_rag_copilot.domain.models.entities import Chunk, Citation
-from agentic_rag_copilot.domain.models.state import AgentState, GradeResult, SynthesizedAnswer
+from agentic_rag_copilot.domain.models import (
+    AgentState,
+    Chunk,
+    Citation,
+    GradeResult,
+    SynthesizedAnswer,
+)
 
 
 def test_grade_result_immutability() -> None:
@@ -10,7 +15,7 @@ def test_grade_result_immutability() -> None:
     assert grade.is_relevant is True
 
     with pytest.raises(ValidationError):
-        grade.is_relevant = False  # type: ignore[misc]
+        grade.is_relevant = False
 
 
 def test_agent_state_mutability_and_progression() -> None:
@@ -22,7 +27,6 @@ def test_agent_state_mutability_and_progression() -> None:
     assert state.is_context_sufficient is False
     assert state.final_answer is None
 
-    # Simulate loop iteration (mutation is allowed on AgentState)
     state.loop_count += 1
     state.current_query = "ColPali multimodal retrieval architecture"
     state.query_history.append("What is ColPali?")

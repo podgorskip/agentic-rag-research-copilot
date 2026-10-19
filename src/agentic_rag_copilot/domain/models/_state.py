@@ -1,7 +1,7 @@
 from pydantic import Field
 
-from .base import ImmutableModel, MutableModel
-from .entities import Chunk, Citation
+from ._base import ImmutableModel, MutableModel
+from ._entities import Chunk, Citation
 
 
 class GradeResult(ImmutableModel):
