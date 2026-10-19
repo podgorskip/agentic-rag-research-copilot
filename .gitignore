@@ -16,7 +16,8 @@ build/
 .idea/
 *.swp
 
-# Testing & Coverage
+# Tool Caches & Coverage (.cache)
+.cache/
 .coverage
 htmlcov/
 coverage.xml
