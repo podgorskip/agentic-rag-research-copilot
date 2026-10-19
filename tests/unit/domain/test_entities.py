@@ -26,7 +26,7 @@ def test_document_strict_validation_fails_on_wrong_types() -> None:
             id="doc-1",
             source_type=SourceType.HTML,
             source_uri="https://docs.example.com",
-            raw_content=12345,
+            raw_content=12345,  # type: ignore[arg-type]
         )
 
     with pytest.raises(ValidationError):

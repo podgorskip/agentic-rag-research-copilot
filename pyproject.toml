@@ -30,6 +30,7 @@ packages = ["src/agentic_rag_copilot"]
 target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
+cache-dir = ".cache/ruff"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "B", "C4", "UP", "SIM", "TCH", "ANN", "PTH", "RUF"]
@@ -49,11 +50,14 @@ indent-style = "space"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "--cov=src --cov-report=term-missing --cov-report=xml:coverage.xml --cov-fail-under=80"
+cache_dir = ".cache/pytest"
+addopts = "--cov=src --cov-report=term-missing --cov-report=xml:.cache/coverage.xml --cov-fail-under=80"
 
+# Coverage
 [tool.coverage.run]
 source = ["."]
 relative_files = true
+data_file = ".cache/.coverage"
 omit = [
     "tests/*",
     "*/__init__.py",
@@ -67,8 +71,25 @@ exclude_lines = [
     "\\.\\.\\.",
 ]
 
+[tool.coverage.xml]
+output = ".cache/coverage.xml"
+
+# Pyright
 [tool.pyright]
+pythonVersion = "3.12"
 typeCheckingMode = "strict"
+include = ["src", "tests"]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    ".venv",
+    "venv",
+    ".cache",
+]
+venvPath = "."
+venv = ".venv"
+reportMissingImports = true
+reportMissingTypeStubs = false
 # Allow 'Any' in dictionaries where we don't know the exact schema of external metadata
 reportUnknownArgumentType = false
 reportUnknownMemberType = false
