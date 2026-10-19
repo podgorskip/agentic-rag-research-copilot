@@ -3,7 +3,7 @@ from typing import Any
 
 from pydantic import Field
 
-from .base import ImmutableModel
+from ._base import ImmutableModel
 
 
 class SourceType(StrEnum):

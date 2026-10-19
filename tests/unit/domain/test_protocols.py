@@ -2,8 +2,7 @@ from typing import TypeVar
 
 from pydantic import BaseModel
 
-from agentic_rag_copilot.domain.models.entities import Chunk, Document, Query, SourceType
-from agentic_rag_copilot.domain.models.state import GradeResult
+from agentic_rag_copilot.domain.models import Chunk, Document, GradeResult, Query, SourceType
 from agentic_rag_copilot.domain.protocols.ingestion import ChunkerProtocol, DocumentLoaderProtocol
 from agentic_rag_copilot.domain.protocols.llm import LLMProtocol
 from agentic_rag_copilot.domain.protocols.retrieval import (
@@ -61,7 +60,6 @@ class DummyLLM:
         response_model: type[T],
         system_prompt: str | None = None,
     ) -> T:
-        # Dynamically validate a dummy payload for GradeResult in tests
         return response_model.model_validate({"is_relevant": True, "reasoning": "Mocked reasoning"})
 
 
