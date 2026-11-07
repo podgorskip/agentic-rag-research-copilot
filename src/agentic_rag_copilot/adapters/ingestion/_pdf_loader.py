@@ -6,7 +6,7 @@ from typing import Any, cast
 import pymupdf
 
 from agentic_rag_copilot.domain.models import Document, SourceType
-from agentic_rag_copilot.domain.protocols.ingestion import DocumentLoaderProtocol
+from agentic_rag_copilot.domain.protocols import DocumentLoaderProtocol
 
 
 class PyMuPDFLoader(DocumentLoaderProtocol):

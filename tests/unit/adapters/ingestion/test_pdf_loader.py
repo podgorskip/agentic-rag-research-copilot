@@ -2,9 +2,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from agentic_rag_copilot.adapters.ingestion.pdf_loader import PyMuPDFLoader
+from agentic_rag_copilot.adapters.ingestion import PyMuPDFLoader
 from agentic_rag_copilot.domain.models import SourceType
-from agentic_rag_copilot.domain.protocols.ingestion import DocumentLoaderProtocol
+from agentic_rag_copilot.domain.protocols import DocumentLoaderProtocol
 
 
 def test_pdf_loader_implements_protocol() -> None:
@@ -12,7 +12,7 @@ def test_pdf_loader_implements_protocol() -> None:
     assert isinstance(loader, DocumentLoaderProtocol)
 
 
-@patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.Path.exists")
+@patch("agentic_rag_copilot.adapters.ingestion._pdf_loader.Path.exists")
 async def test_load_raises_file_not_found(mock_exists: MagicMock) -> None:
     mock_exists.return_value = False
     loader = PyMuPDFLoader()
@@ -21,8 +21,8 @@ async def test_load_raises_file_not_found(mock_exists: MagicMock) -> None:
         await loader.load("dummy_missing.pdf")
 
 
-@patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.pymupdf.open")
-@patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.Path.exists")
+@patch("agentic_rag_copilot.adapters.ingestion._pdf_loader.pymupdf.open")
+@patch("agentic_rag_copilot.adapters.ingestion._pdf_loader.Path.exists")
 async def test_load_valid_pdf_extracts_content(
     mock_exists: MagicMock, mock_pymupdf_open: MagicMock
 ) -> None:
@@ -50,8 +50,8 @@ async def test_load_valid_pdf_extracts_content(
     assert len(document.id) == 64  # Deterministic SHA-256 hash
 
 
-@patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.pymupdf.open")
-@patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.Path.exists")
+@patch("agentic_rag_copilot.adapters.ingestion._pdf_loader.pymupdf.open")
+@patch("agentic_rag_copilot.adapters.ingestion._pdf_loader.Path.exists")
 async def test_load_raises_value_error_on_library_exception(
     mock_exists: MagicMock, mock_pymupdf_open: MagicMock
 ) -> None:
