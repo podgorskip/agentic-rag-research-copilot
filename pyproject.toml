@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
     "pymupdf>=2.1",
+    "qdrant-client>=1.13,<1.14",
     "trafilatura>=2.3.1",
 ]
 
