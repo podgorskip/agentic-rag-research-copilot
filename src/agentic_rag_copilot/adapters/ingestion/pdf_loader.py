@@ -45,7 +45,7 @@ class PyMuPDFLoader(DocumentLoaderProtocol):
         except Exception as e:
             raise ValueError(f"Failed to parse PDF {source_uri}: {e!s}") from e
 
-        doc_id = hashlib.md5(source_uri.encode("utf-8")).hexdigest()
+        doc_id = hashlib.sha256(source_uri.encode("utf-8")).hexdigest()
 
         return Document(
             id=doc_id,

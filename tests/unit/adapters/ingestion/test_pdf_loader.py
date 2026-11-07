@@ -47,7 +47,7 @@ async def test_load_valid_pdf_extracts_content(
     assert document.raw_content == "Mocked PDF content."
     assert document.metadata["page_count"] == 1
     assert document.metadata["author"] == "John Doe"
-    assert len(document.id) == 32  # Deterministic MD5 hash
+    assert len(document.id) == 64  # Deterministic SHA-256 hash
 
 
 @patch("agentic_rag_copilot.adapters.ingestion.pdf_loader.pymupdf.open")
