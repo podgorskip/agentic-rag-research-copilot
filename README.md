@@ -30,6 +30,16 @@ rewrites queries when needed, and attributes every answer with precise source ci
 uv sync --extra dev
 ```
 
+2. **Start the local Qdrant instance** (requires Docker):
+```bash
+just qdrant-up 
+```
+Qdrant is exposed on `http://localhost:6333` (REST) and `localhost:6334` (gRPC). Data is persisted in the
+`qdrant_storage` Docker volume. Stop it with `just qdrant-down` and follow its logs with `just qdrant-logs`.
+
+3. **Configure the environment (optional):** copy `.env.example` to `.env` to override ports, the Qdrant image
+   version, or `RAG_QDRANT_URL`.
+
 ## Code Quality, Typechecking & Testing
 
 The repository enforces strict engineering standards in CI:

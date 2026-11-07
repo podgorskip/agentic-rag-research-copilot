@@ -26,3 +26,12 @@ check: lint format-check typecheck test
 
 run:
     uv run python src/main.py
+
+qdrant-up:
+    docker compose up -d --wait qdrant
+
+qdrant-down:
+    docker compose down
+
+qdrant-logs:
+    docker compose logs -f qdrant
