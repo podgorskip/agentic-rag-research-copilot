@@ -3,10 +3,11 @@ from typing import TypeVar
 from pydantic import BaseModel
 
 from agentic_rag_copilot.domain.models import Chunk, Document, GradeResult, Query, SourceType
-from agentic_rag_copilot.domain.protocols.ingestion import ChunkerProtocol, DocumentLoaderProtocol
-from agentic_rag_copilot.domain.protocols.llm import LLMProtocol
-from agentic_rag_copilot.domain.protocols.retrieval import (
+from agentic_rag_copilot.domain.protocols import (
+    ChunkerProtocol,
+    DocumentLoaderProtocol,
     EmbedderProtocol,
+    LLMProtocol,
     RerankerProtocol,
     VectorStoreProtocol,
 )

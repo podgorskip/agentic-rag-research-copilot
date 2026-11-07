@@ -3,7 +3,7 @@ from pathlib import Path
 import pymupdf
 import pytest
 
-from agentic_rag_copilot.adapters.ingestion.pdf_loader import PyMuPDFLoader
+from agentic_rag_copilot.adapters.ingestion import PyMuPDFLoader
 
 
 @pytest.fixture
