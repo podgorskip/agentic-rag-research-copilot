@@ -11,28 +11,37 @@ class LangchainTextChunker(ChunkerProtocol):
     """Intelligently chunks text while respecting paragraphs and sentences."""
 
     def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200) -> None:
-        # We delegate the complex validation and splitting logic to LangChain
+        """Initialize the text chunker with splitting parameters.
+
+        Args:
+            chunk_size: Maximum size of each text chunk in characters (default: 1000).
+            chunk_overlap: Number of characters to overlap
+                           between consecutive chunks (default: 200).
+        """
         self.splitter = RecursiveCharacterTextSplitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
         )
 
     def chunk(self, document: Document) -> list[Chunk]:
-        """Synchronously splits document text into semantic chunks."""
+        """Synchronously splits document text into semantic chunks.
+
+        Args:
+            document: The document to chunk.
+
+        Returns:
+            A list of Chunk objects with unique IDs, text, document reference, and metadata.
+        """
         text = document.raw_content
         if not text:
             return []
 
-        # Langchain handles the intelligent text splitting
         split_texts = self.splitter.split_text(text)
 
         chunks: list[Chunk] = []
         for index, chunk_text in enumerate(split_texts):
-            # SHA-256 for SonarCloud compliance
             hash_input = f"{document.id}_{index}".encode()
             chunk_id = hashlib.sha256(hash_input).hexdigest()
-
-            # Inherit parent metadata and append chunk-specific data
             metadata: dict[str, Any] = document.metadata.copy()
             metadata["chunk_index"] = index
 

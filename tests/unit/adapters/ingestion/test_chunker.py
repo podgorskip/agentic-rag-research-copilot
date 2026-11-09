@@ -9,6 +9,11 @@ from agentic_rag_copilot.domain.protocols import ChunkerProtocol
 
 @pytest.fixture
 def dummy_document() -> Document:
+    """Create a dummy document fixture for testing.
+
+    Returns:
+        Document with fixed ID, 100 'A' characters content, and test metadata.
+    """
     return Document(
         id="doc_123",
         source_type=SourceType.PDF,
@@ -19,14 +24,22 @@ def dummy_document() -> Document:
 
 
 def test_chunker_implements_protocol() -> None:
+    """Verify that LangchainTextChunker implements the ChunkerProtocol interface."""
     chunker = LangchainTextChunker()
     assert isinstance(chunker, ChunkerProtocol)
 
 
 def test_chunk_document_smaller_than_chunk_size(dummy_document: Document) -> None:
+    """Test that a document smaller than chunk size results in a single chunk.
+
+    Args:
+        dummy_document: 100-character document fixture.
+
+    Returns:
+        A single chunk with preserved content, metadata, and SHA-256 ID.
+    """
     chunker = LangchainTextChunker(chunk_size=150, chunk_overlap=20)
 
-    # Notice this is now a standard synchronous call
     chunks = chunker.chunk(dummy_document)
 
     assert len(chunks) == 1
@@ -38,16 +51,19 @@ def test_chunk_document_smaller_than_chunk_size(dummy_document: Document) -> Non
 
 
 def test_chunk_intelligent_split_logic() -> None:
+    """Test that chunker respects paragraph boundaries in splitting.
+
+    Returns:
+        Two chunks split at paragraph boundaries, preserving semantic units.
+    """
     doc = Document(
         id="doc_text",
         source_type=SourceType.HTML,
         source_uri="dummy.html",
-        # Two paragraphs separated by double newlines
         raw_content="Paragraph one is here.\n\nParagraph two is here.",
         metadata={},
     )
 
-    # Force a split that naturally falls on the paragraph boundary
     chunker = LangchainTextChunker(chunk_size=30, chunk_overlap=0)
     chunks = chunker.chunk(doc)
 
@@ -57,7 +73,11 @@ def test_chunk_intelligent_split_logic() -> None:
 
 
 def test_chunk_empty_document() -> None:
-    # Use a MagicMock to bypass Pydantic's strict validation rules
+    """Test that chunking an empty document returns an empty list.
+
+    Returns:
+        Empty list when document content is empty.
+    """
     mock_doc = MagicMock(spec=Document)
     mock_doc.raw_content = ""
     mock_doc.id = "empty_doc"

@@ -9,11 +9,17 @@ from agentic_rag_copilot.adapters.ingestion import LangchainTextChunker, Trafila
 
 
 class PipelineMockHandler(BaseHTTPRequestHandler):
+    """HTTP request handler that serves a large HTML document for testing."""
+
     def do_GET(self) -> None:
+        """Handle GET requests by returning a large HTML document.
+
+        Returns:
+            200 OK response with HTML content containing repeated paragraph elements.
+        """
         self.send_response(200)
         self.send_header("Content-type", "text/html; charset=utf-8")
 
-        # A long article to guarantee multiple chunks are generated
         long_text = "<p>Word </p>" * 500
         html = f"<html><body><main>{long_text}</main></body></html>"
 
@@ -23,11 +29,25 @@ class PipelineMockHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format: str, *args: Any) -> None:
+        """Suppress HTTP request logging.
+
+        Args:
+            format: Log message format string (unused).
+            *args: Format arguments (unused).
+        """
         pass
 
 
 @pytest.fixture(scope="module")
 def pipeline_server() -> Iterator[str]:
+    """Create a temporary HTTP server serving test HTML content.
+
+    Returns:
+        Server URL (e.g., "http://127.0.0.1:12345").
+
+    Yields:
+        URL for the duration of the test module, then shuts down the server.
+    """
     server = HTTPServer(("127.0.0.1", 0), cast("Any", PipelineMockHandler))
     port = server.server_port
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -41,17 +61,21 @@ def pipeline_server() -> Iterator[str]:
 
 
 async def test_end_to_end_ingestion_pipeline(pipeline_server: str) -> None:
-    # Initialize pipeline adapters
+    """Test the complete ingestion pipeline from HTML loading to document chunking.
+
+    Args:
+        pipeline_server: URL of test HTTP server providing HTML content.
+
+    Returns:
+        Multiple chunks from the loaded and processed document with proper metadata.
+    """
     loader = TrafilaturaHTMLLoader()
     chunker = LangchainTextChunker(chunk_size=200, chunk_overlap=50)
 
-    # Execute Loader (Async)
     document = await loader.load(pipeline_server)
 
-    # Execute Chunker (Sync)
     chunks = chunker.chunk(document)
 
-    # Verify Pipeline Results
     assert len(chunks) > 1
     assert chunks[0].metadata["parser"] == "trafilatura"
     assert chunks[0].document_id == document.id

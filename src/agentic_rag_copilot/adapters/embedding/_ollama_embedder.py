@@ -1,14 +1,11 @@
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from agentic_rag_copilot.domain.exceptions import EmbeddingError
 from agentic_rag_copilot.domain.protocols import EmbedderProtocol
 
 DEFAULT_EMBEDDING_MODEL = "nomic-embed-text"
 DEFAULT_BATCH_SIZE = 32
-
-
-class EmbeddingError(RuntimeError):
-    """Raised when the embedding backend is unreachable or returns an unusable response."""
 
 
 class _EmbedResponse(BaseModel):
@@ -73,13 +70,11 @@ class OllamaEmbedder(EmbedderProtocol):
 
     async def _request_embeddings(self, texts: list[str]) -> list[list[float]]:
         try:
-            # Without truncate=False, Ollama silently embeds only the start of an oversized text.
             response = await self._client.post(
                 "/api/embed", json={"model": self._model, "input": texts, "truncate": False}
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
-            # The body carries the actionable detail, e.g. that the model has not been pulled.
             raise EmbeddingError(
                 f"Ollama returned HTTP {exc.response.status_code}: {exc.response.text}"
             ) from exc
