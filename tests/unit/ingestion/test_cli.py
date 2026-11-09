@@ -204,6 +204,8 @@ def test_requires_at_least_one_source(capsys: pytest.CaptureFixture[str]) -> Non
 
 
 def test_settings_ignore_unrelated_dotenv_entries(tmp_path: Path) -> None:
-    (tmp_path / ".env").write_text("QDRANT_VERSION=v1\nRAG_EMBEDDING_MODEL=custom\n")
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    (config_dir / ".env").write_text("QDRANT_VERSION=v1\nRAG_EMBEDDING_MODEL=custom\n")
 
     assert IngestionSettings().embedding_model == "custom"
