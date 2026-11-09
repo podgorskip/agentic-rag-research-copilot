@@ -37,7 +37,7 @@ just qdrant-up
 Qdrant is exposed on `http://localhost:6333` (REST) and `localhost:6334` (gRPC). Data is persisted in the
 `qdrant_storage` Docker volume. Stop it with `just qdrant-down` and follow its logs with `just qdrant-logs`.
 
-3. **Configure the environment (optional):** copy `.env.example` to `.env` to override ports, the Qdrant image
+3. **Configure the environment (optional):** copy `config/.env.example` to `config/.env` to override ports, the Qdrant image
    version, or `RAG_QDRANT_URL`.
 
 ## Ingesting Documents
@@ -56,7 +56,7 @@ uv run rag-ingest paper.pdf https://docs.example.org/guide
 ```
 
 A source that fails is reported and the rest still run. The exit code is `0` if everything was ingested, `1` if
-any source failed and `2` if the configuration is invalid. Settings are listed in `.env.example`.
+any source failed and `2` if the configuration is invalid. Settings are listed in `config/.env.example`.
 
 ## Code Quality, Typechecking & Testing
 

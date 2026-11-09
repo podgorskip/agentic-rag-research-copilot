@@ -6,7 +6,7 @@ class IngestionSettings(BaseSettings):
     """Ingestion configuration, read from ``RAG_``-prefixed variables or a local ``.env``."""
 
     # .env also holds docker-compose variables that have no matching field here.
-    model_config = SettingsConfigDict(env_prefix="RAG_", env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_prefix="RAG_", env_file="config/.env", extra="ignore")
 
     qdrant_url: str = "http://localhost:6333"
     qdrant_collection: str = "chunks"
