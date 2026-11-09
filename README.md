@@ -40,6 +40,24 @@ Qdrant is exposed on `http://localhost:6333` (REST) and `localhost:6334` (gRPC).
 3. **Configure the environment (optional):** copy `.env.example` to `.env` to override ports, the Qdrant image
    version, or `RAG_QDRANT_URL`.
 
+## Ingesting Documents
+
+Pull the embedding model once, with Qdrant and Ollama running:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Then pass any mix of local PDF files and HTML page URLs:
+
+```bash
+uv run rag-ingest paper.pdf https://docs.example.org/guide
+# or: just ingest paper.pdf https://docs.example.org/guide
+```
+
+A source that fails is reported and the rest still run. The exit code is `0` if everything was ingested, `1` if
+any source failed and `2` if the configuration is invalid. Settings are listed in `.env.example`.
+
 ## Code Quality, Typechecking & Testing
 
 The repository enforces strict engineering standards in CI:

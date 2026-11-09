@@ -27,6 +27,9 @@ check: lint format-check typecheck test
 run:
     uv run python src/main.py
 
+ingest +sources:
+    uv run rag-ingest {{sources}}
+
 qdrant-up:
     docker compose up -d --wait qdrant
 
