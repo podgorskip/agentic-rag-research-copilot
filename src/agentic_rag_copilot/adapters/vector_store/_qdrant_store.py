@@ -1,14 +1,14 @@
 import uuid
-from typing import Any
+from typing import Any, Final
 
 from qdrant_client import AsyncQdrantClient, models
 
 from agentic_rag_copilot.domain.models import Chunk, Query
 from agentic_rag_copilot.domain.protocols import VectorStoreProtocol
 
-DENSE_VECTOR_NAME = "dense"
-SPARSE_VECTOR_NAME = "bm25"
-POINT_ID_NAMESPACE = uuid.UUID("6f1c2a8e-3b4d-4e5f-9a7b-1c2d3e4f5a6b")
+_DENSE_VECTOR_NAME: Final[str] = "dense"
+_SPARSE_VECTOR_NAME: Final[str] = "bm25"
+_POINT_ID_NAMESPACE: Final[uuid.UUID] = uuid.UUID("6f1c2a8e-3b4d-4e5f-9a7b-1c2d3e4f5a6b")
 
 
 class QdrantVectorStore(VectorStoreProtocol):
@@ -33,12 +33,12 @@ class QdrantVectorStore(VectorStoreProtocol):
         await self.client.create_collection(
             collection_name=self.collection_name,
             vectors_config={
-                DENSE_VECTOR_NAME: models.VectorParams(
+                _DENSE_VECTOR_NAME: models.VectorParams(
                     size=vector_size, distance=models.Distance.COSINE
                 ),
             },
             sparse_vectors_config={
-                SPARSE_VECTOR_NAME: models.SparseVectorParams(modifier=models.Modifier.IDF),
+                _SPARSE_VECTOR_NAME: models.SparseVectorParams(modifier=models.Modifier.IDF),
             },
         )
 
@@ -67,8 +67,8 @@ class QdrantVectorStore(VectorStoreProtocol):
 
         points = [
             models.PointStruct(
-                id=str(uuid.uuid5(POINT_ID_NAMESPACE, chunk.id)),
-                vector={DENSE_VECTOR_NAME: embedding},
+                id=str(uuid.uuid5(_POINT_ID_NAMESPACE, chunk.id)),
+                vector={_DENSE_VECTOR_NAME: embedding},
                 payload=self._to_payload(chunk),
             )
             for chunk, embedding in zip(chunks, embeddings, strict=True)

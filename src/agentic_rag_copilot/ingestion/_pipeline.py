@@ -33,8 +33,6 @@ class IngestionError(Exception):
 
 @contextmanager
 def _failing_as(stage: IngestionStage, source_uri: str) -> Generator[None]:
-    # Adapters surface many unrelated exception types (OSError, ValueError, HTTP and Qdrant
-    # errors), so this boundary deliberately normalises all of them.
     try:
         yield
     except Exception as exc:
@@ -54,7 +52,6 @@ def detect_source_type(source_uri: str) -> SourceType:
         ValueError: If the URI matches neither supported type.
     """
     parts = urlsplit(source_uri)
-    # A bare file path may contain "?" or "#", which URL parsing would treat as delimiters.
     path = parts.path if parts.scheme else source_uri
     suffix = PurePosixPath(path).suffix.lower()
 
