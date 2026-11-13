@@ -7,12 +7,12 @@ from qdrant_client import AsyncQdrantClient, models
 from testcontainers.community.qdrant import QdrantContainer
 
 from agentic_rag_copilot.adapters.vector_store import QdrantVectorStore
-from agentic_rag_copilot.adapters.vector_store._qdrant_store import (
-    DENSE_VECTOR_NAME,
-    POINT_ID_NAMESPACE,
-    SPARSE_VECTOR_NAME,
-)
 from agentic_rag_copilot.domain.models import Chunk
+from tests.mocks.ingestion import MockEmbedder
+
+DENSE_VECTOR_NAME = "dense"
+SPARSE_VECTOR_NAME = "bm25"
+POINT_ID_NAMESPACE = uuid.UUID("6f1c2a8e-3b4d-4e5f-9a7b-1c2d3e4f5a6b")
 
 QDRANT_IMAGE = "qdrant/qdrant:v1.13.6"
 UNIT_VECTOR = [0.6, 0.0, 0.8]
@@ -36,7 +36,9 @@ async def client(qdrant_container: QdrantContainer) -> AsyncIterator[AsyncQdrant
 async def store(client: AsyncQdrantClient) -> AsyncIterator[QdrantVectorStore]:
     """Gives each test its own collection and drops it afterwards."""
     collection_name = f"test_{uuid.uuid4().hex}"
-    yield QdrantVectorStore(client, collection_name=collection_name)
+    yield QdrantVectorStore(
+        client, embedder=MockEmbedder(dimension=len(UNIT_VECTOR)), collection_name=collection_name
+    )
     if await client.collection_exists(collection_name):
         await client.delete_collection(collection_name)
 

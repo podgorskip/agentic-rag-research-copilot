@@ -62,7 +62,4 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         with:
           args: >
-            -Dsonar.projectBaseDir=config
-            -Dsonar.python.coverage.reportPaths=.cache/coverage.xml
-            -Dsonar.sources=src
-            -Dsonar.tests=tests
+            -Dproject.settings=config/sonar-project.properties
