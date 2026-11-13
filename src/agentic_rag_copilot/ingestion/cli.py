@@ -48,18 +48,19 @@ async def build_pipeline(settings: IngestionSettings) -> AsyncGenerator[Ingestio
         async with httpx.AsyncClient(
             base_url=settings.ollama_url, timeout=settings.embedding_timeout_seconds
         ) as ollama:
+            embedder = OllamaEmbedder(
+                ollama,
+                model=settings.embedding_model,
+                batch_size=settings.embedding_batch_size,
+            )
             yield IngestionPipeline(
                 loaders={
                     SourceType.PDF: PyMuPDFLoader(),
                     SourceType.HTML: TrafilaturaHTMLLoader(),
                 },
                 chunker=chunker,
-                embedder=OllamaEmbedder(
-                    ollama,
-                    model=settings.embedding_model,
-                    batch_size=settings.embedding_batch_size,
-                ),
-                vector_store=QdrantVectorStore(qdrant, settings.qdrant_collection),
+                embedder=embedder,
+                vector_store=QdrantVectorStore(qdrant, embedder, settings.qdrant_collection),
             )
     finally:
         await qdrant.close()

@@ -10,7 +10,7 @@ dependencies = [
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.0",
     "pymupdf>=2.1",
-    "qdrant-client>=1.13,<1.14",
+    "qdrant-client[fastembed]>=1.13,<1.14",
     "trafilatura>=2.3.1",
 ]
 
@@ -54,6 +54,7 @@ known-first-party = ["agentic_rag_copilot"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+line-ending = "cr-lf"
 
 # Pytest
 [tool.pytest.ini_options]

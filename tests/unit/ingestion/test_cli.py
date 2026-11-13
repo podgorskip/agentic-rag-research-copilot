@@ -2,9 +2,10 @@
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Final
 from unittest.mock import AsyncMock
 
 import httpx
@@ -15,6 +16,10 @@ from qdrant_client import AsyncQdrantClient
 from agentic_rag_copilot.ingestion import IngestionSettings, cli
 
 Handler = Callable[[httpx.Request], httpx.Response]
+
+_EXIT_OK: Final[int] = 0
+_EXIT_INGESTION_FAILED: Final[int] = 1
+_EXIT_INVALID_CONFIG: Final[int] = 2
 
 
 def embed_ok(request: httpx.Request) -> httpx.Response:
@@ -78,76 +83,76 @@ def test_ingests_pdf_end_to_end(
     qdrant: AsyncQdrantClient,
     fake_ollama: Callable[[Handler], None],
     pdf_path: str,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_ollama(embed_ok)
+    caplog.set_level(logging.INFO)
 
-    assert cli.main([pdf_path]) == cli.EXIT_OK
+    assert cli.main([pdf_path]) == _EXIT_OK
 
     assert stored_count(qdrant) == 1
-    output = capsys.readouterr().out
-    assert f"OK {pdf_path}: 1 chunks" in output
-    assert "Ingested 1 of 1 sources" in output
+    assert f"OK {pdf_path}: 1 chunks" in caplog.text
+    assert "Ingested 1 of 1 sources" in caplog.text
 
 
 def test_unreadable_file_does_not_abort_the_batch(
     qdrant: AsyncQdrantClient,
     fake_ollama: Callable[[Handler], None],
     pdf_path: str,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_ollama(embed_ok)
+    caplog.set_level(logging.INFO)
 
-    assert cli.main(["missing.pdf", pdf_path]) == cli.EXIT_INGESTION_FAILED
+    assert cli.main(["missing.pdf", pdf_path]) == _EXIT_INGESTION_FAILED
 
     assert stored_count(qdrant) == 1
-    captured = capsys.readouterr()
-    assert "FAILED missing.pdf: load stage failed" in captured.err
-    assert "Ingested 1 of 2 sources" in captured.out
+    assert "FAILED missing.pdf: load stage failed" in caplog.text
+    assert "Ingested 1 of 2 sources" in caplog.text
 
 
 def test_corrupt_pdf_is_reported(
     qdrant: AsyncQdrantClient,
     fake_ollama: Callable[[Handler], None],
     tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_ollama(embed_ok)
     corrupt = tmp_path / "corrupt.pdf"
     corrupt.write_bytes(b"this is not a pdf")
 
-    assert cli.main([str(corrupt)]) == cli.EXIT_INGESTION_FAILED
+    assert cli.main([str(corrupt)]) == _EXIT_INGESTION_FAILED
 
-    assert "load stage failed" in capsys.readouterr().err
+    assert "load stage failed" in caplog.text
     assert stored_count(qdrant) == 0
 
 
 def test_unsupported_source_is_reported(
     qdrant: AsyncQdrantClient,
     fake_ollama: Callable[[Handler], None],
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_ollama(embed_ok)
 
-    assert cli.main(["notes.txt"]) == cli.EXIT_INGESTION_FAILED
+    assert cli.main(["notes.txt"]) == _EXIT_INGESTION_FAILED
 
-    assert "Cannot determine source type" in capsys.readouterr().err
+    assert "Cannot determine source type" in caplog.text
 
 
 def test_ollama_network_failure_is_reported(
     qdrant: AsyncQdrantClient,
     fake_ollama: Callable[[Handler], None],
     pdf_path: str,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
 
     fake_ollama(refuse)
 
-    assert cli.main([pdf_path]) == cli.EXIT_INGESTION_FAILED
+    assert cli.main([pdf_path]) == _EXIT_INGESTION_FAILED
 
-    assert "embed stage failed" in capsys.readouterr().err
+    assert "embed stage failed" in caplog.text
     assert stored_count(qdrant) == 0
 
 
@@ -156,14 +161,15 @@ def test_qdrant_failure_is_reported(
     fake_ollama: Callable[[Handler], None],
     pdf_path: str,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     fake_ollama(embed_ok)
     monkeypatch.setattr(qdrant, "upsert", AsyncMock(side_effect=ConnectionError("qdrant down")))
 
-    assert cli.main([pdf_path]) == cli.EXIT_INGESTION_FAILED
+    assert cli.main([pdf_path]) == _EXIT_INGESTION_FAILED
 
-    assert "upsert stage failed: qdrant down" in capsys.readouterr().err
+    assert "upsert stage failed" in caplog.text
+    assert "qdrant down" in caplog.text
 
 
 def test_qdrant_client_is_closed(
@@ -187,13 +193,13 @@ def test_invalid_configuration_exits_with_config_code(
     variable: str,
     value: str,
     monkeypatch: pytest.MonkeyPatch,
-    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv(variable, value)
 
-    assert cli.main(["paper.pdf"]) == cli.EXIT_INVALID_CONFIG
+    assert cli.main(["paper.pdf"]) == _EXIT_INVALID_CONFIG
 
-    assert "Invalid configuration" in capsys.readouterr().err
+    assert "Invalid configuration" in caplog.text
 
 
 def test_requires_at_least_one_source(capsys: pytest.CaptureFixture[str]) -> None:
