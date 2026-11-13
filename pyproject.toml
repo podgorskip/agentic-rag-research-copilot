@@ -62,6 +62,9 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 cache_dir = ".cache/pytest"
 addopts = "--cov=src --cov-report=term-missing --cov-report=xml:.cache/coverage.xml --cov-fail-under=80"
+filterwarnings = [
+    "ignore:`huggingface_hub` cache-system uses symlinks by default:UserWarning:huggingface_hub.file_download",
+]
 
 # Coverage
 [tool.coverage.run]
