@@ -9,7 +9,7 @@ rewrites queries when needed, and attributes every answer with precise source ci
 | Layer | Component | Default |
 |---|---|---|
 | Ingestion | PDF/HTML parsing & chunking | `PyMuPDF`, `trafilatura` |
-| Retrieval | Hybrid vector + keyword search + reranking | `Qdrant`, `bge-reranker-v2` |
+| Retrieval | Hybrid vector + keyword search + reranking | `Qdrant`, `jina-reranker-v2` |
 | Agent | Query rewriting, relevance grading, self-correction | Plain Python / `LangGraph` |
 | Generation | Answer synthesis with inline citations | `Ollama` (local), `OpenAI` |
 | API | Async REST endpoints | `FastAPI` |
@@ -57,6 +57,16 @@ uv run rag-ingest paper.pdf https://docs.example.org/guide
 
 A source that fails is reported and the rest still run. The exit code is `0` if everything was ingested, `1` if
 any source failed and `2` if the configuration is invalid. Settings are listed in `config/.env.example`.
+
+## Validating Retrieval Quality
+
+With Qdrant and Ollama running (`nomic-embed-text` pulled), you can run the standalone retrieval benchmark against Lewis et al. (2020) (*arXiv:2005.11401*, cached under `.cache/validation/`):
+
+```bash
+just validate-retrieval --output docs/validation/raw_results.md
+```
+
+This compares **Dense-only**, **Hybrid (Dense + BM25)**, and **Hybrid + Reranked** rankings across 12 curated queries (`exact_term`, `conceptual`, `multi_hop`). See [`docs/validation/milestone_3_retrieval_quality.md`](docs/validation/milestone_3_retrieval_quality.md) for the Milestone 3 evaluation report and parameter choices.
 
 ## Code Quality, Typechecking & Testing
 

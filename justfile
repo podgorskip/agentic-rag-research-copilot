@@ -40,6 +40,10 @@ run:
 ingest +sources:
     uv run rag-ingest {{sources}}
 
+# Compare Dense vs. Hybrid vs. Reranked retrieval quality
+validate-retrieval *args:
+    uv run python scripts/validate_retrieval.py {{args}}
+
 # Start Qdrant vector database
 qdrant-up:
     docker compose up -d --wait qdrant
