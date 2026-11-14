@@ -130,6 +130,9 @@ class QdrantVectorStore(VectorStoreProtocol):
         qdrant_filter = self._build_filter(query.filters)
 
         try:
+            if (await self.client.count(self.collection_name, exact=False)).count == 0:
+                return []
+
             response = await self.client.query_points(
                 collection_name=self.collection_name,
                 prefetch=[
