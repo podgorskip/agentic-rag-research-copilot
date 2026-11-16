@@ -79,9 +79,13 @@ def local_http_server() -> Iterator[str]:
 
 
 async def test_integration_load_valid_html_from_network(local_http_server: str) -> None:
+    # Given
     loader = TrafilaturaHTMLLoader()
+
+    # When
     document = await loader.load(f"{local_http_server}/valid")
 
+    # Then
     assert document.source_type == SourceType.HTML
     assert "This is the core documentation text" in document.raw_content
     # Ensure boilerplate was stripped
@@ -90,14 +94,18 @@ async def test_integration_load_valid_html_from_network(local_http_server: str) 
 
 
 async def test_integration_load_raises_value_error_for_404(local_http_server: str) -> None:
+    # Given
     loader = TrafilaturaHTMLLoader()
 
+    # When / Then
     with pytest.raises(ValueError, match="Failed to fetch HTML from"):
         await loader.load(f"{local_http_server}/missing")
 
 
 async def test_integration_load_raises_value_error_for_empty_page(local_http_server: str) -> None:
+    # Given
     loader = TrafilaturaHTMLLoader()
 
+    # When / Then
     with pytest.raises(ValueError, match="Failed to extract meaningful text"):
         await loader.load(f"{local_http_server}/empty")

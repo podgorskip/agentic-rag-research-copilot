@@ -80,14 +80,17 @@ def _stub_bm25(store: QdrantVectorStore, sparse: models.SparseVector | None = No
 
 
 def test_store_implements_protocol(store: QdrantVectorStore) -> None:
+    # Then
     assert isinstance(store, VectorStoreProtocol)
 
 
 async def test_ensure_collection_creates_dense_and_sparse_vectors(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # When
     await store.ensure_collection(vector_size=VECTOR_SIZE)
 
+    # Then
     info = await client.get_collection(COLLECTION)
     vectors = info.config.params.vectors
     sparse = info.config.params.sparse_vectors
@@ -102,17 +105,21 @@ async def test_ensure_collection_creates_dense_and_sparse_vectors(
 async def test_ensure_collection_is_idempotent(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # When
     await store.ensure_collection(vector_size=VECTOR_SIZE)
     await store.ensure_collection(vector_size=VECTOR_SIZE)
 
+    # Then
     assert await client.collection_exists(COLLECTION)
 
 
 async def test_ensure_collection_wraps_qdrant_error_in_value_error() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_client.collection_exists.side_effect = RuntimeError("connection lost")
     store = QdrantVectorStore(mock_client, embedder=_mock_embedder(), collection_name=COLLECTION)
 
+    # When / Then
     with pytest.raises(ValueError, match="Failed to ensure Qdrant collection"):
         await store.ensure_collection(vector_size=VECTOR_SIZE)
 
@@ -120,10 +127,13 @@ async def test_ensure_collection_wraps_qdrant_error_in_value_error() -> None:
 async def test_upsert_writes_points_with_dense_and_bm25_vectors_and_payload(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunk = make_chunk("a" * 64)
 
+    # When
     await store.upsert([chunk])
 
+    # Then
     points, _ = await client.scroll(COLLECTION, with_vectors=True, limit=10)
     assert len(points) == 1
     point = points[0]
@@ -144,6 +154,7 @@ async def test_upsert_writes_points_with_dense_and_bm25_vectors_and_payload(
 async def test_upsert_overwrites_existing_chunk(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     await store.upsert([make_chunk("b" * 64)])
     updated = Chunk(
         id="b" * 64,
@@ -152,8 +163,10 @@ async def test_upsert_overwrites_existing_chunk(
         embedding=[0.3, 0.2, 0.1],
     )
 
+    # When
     await store.upsert([updated])
 
+    # Then
     assert (await client.count(COLLECTION, exact=True)).count == 1
     points, _ = await client.scroll(COLLECTION, with_payload=True, limit=10)
     assert points[0].payload is not None
@@ -161,22 +174,28 @@ async def test_upsert_overwrites_existing_chunk(
 
 
 async def test_upsert_batch_of_chunks(store: QdrantVectorStore, client: AsyncQdrantClient) -> None:
+    # Given
     chunks = [make_chunk(f"{index:064d}") for index in range(5)]
 
+    # When
     await store.upsert(chunks)
 
+    # Then
     assert (await client.count(COLLECTION, exact=True)).count == 5
 
 
 async def test_upsert_empty_list_does_not_create_collection(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # When
     await store.upsert([])
 
+    # Then
     assert not await client.collection_exists(COLLECTION)
 
 
 async def test_upsert_computes_missing_embeddings_and_attaches_bm25_document() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_emb = _mock_embedder(embed_batch_return=[[0.5, 0.5, 0.0]])
     store = QdrantVectorStore(mock_client, embedder=mock_emb, collection_name=COLLECTION)
@@ -186,8 +205,10 @@ async def test_upsert_computes_missing_embeddings_and_attaches_bm25_document() -
     )
     needs_embedding = Chunk(id="c2", document_id="doc_1", text="needs embedding", embedding=None)
 
+    # When
     await store.upsert([pre_embedded, needs_embedding])
 
+    # Then
     mock_emb.embed_batch.assert_awaited_once_with(["needs embedding"])
     mock_client.upsert.assert_awaited_once()
     points = mock_client.upsert.call_args.kwargs["points"]
@@ -203,39 +224,48 @@ async def test_upsert_computes_missing_embeddings_and_attaches_bm25_document() -
 
 
 async def test_upsert_raises_value_error_on_mismatched_embedder_count() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_emb = _mock_embedder(embed_batch_return=[])
     store = QdrantVectorStore(mock_client, embedder=mock_emb, collection_name=COLLECTION)
 
+    # When / Then
     with pytest.raises(ValueError, match="Embedder returned 0 vectors for 1 chunks"):
         await store.upsert([Chunk(id="c1", document_id="doc_1", text="missing")])
 
 
 async def test_upsert_wraps_embedder_and_qdrant_errors_in_value_error() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     failing_emb = _mock_embedder(embed_batch_side_effect=RuntimeError("ollama down"))
     store = QdrantVectorStore(mock_client, embedder=failing_emb, collection_name=COLLECTION)
 
+    # When / Then: a failing embedder is wrapped
     with pytest.raises(ValueError, match="Failed to embed chunks"):
         await store.upsert([Chunk(id="c1", document_id="doc_1", text="hello")])
 
+    # Given: a failing Qdrant client
     mock_client.upsert.side_effect = RuntimeError("qdrant down")
     ok_store = QdrantVectorStore(mock_client, embedder=_mock_embedder(), collection_name=COLLECTION)
 
+    # When / Then: the Qdrant failure is wrapped too
     with pytest.raises(ValueError, match="Failed to upsert chunks into Qdrant"):
         await ok_store.upsert([make_chunk("d" * 64)])
 
 
 async def test_hybrid_search_reuses_query_embedding_and_builds_rrf_prefetch() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_emb = _mock_embedder()
     store = QdrantVectorStore(mock_client, embedder=mock_emb, collection_name=COLLECTION)
     bm25_vec = models.SparseVector(indices=[10, 20], values=[1.0, 0.5])
     _stub_bm25(store, bm25_vec)
-
     query = Query(text="hybrid retrieval", embedding=[0.9, 0.1, 0.0])
+
+    # When
     await store.hybrid_search(query, top_k=7)
 
+    # Then
     mock_emb.embed_text.assert_not_awaited()
     mock_client.query_points.assert_awaited_once()
     kwargs = mock_client.query_points.call_args.kwargs
@@ -261,19 +291,23 @@ async def test_hybrid_search_reuses_query_embedding_and_builds_rrf_prefetch() ->
 
 
 async def test_hybrid_search_generates_embedding_when_missing() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_emb = _mock_embedder(embed_text_return=[0.4, 0.5, 0.6])
     store = QdrantVectorStore(mock_client, embedder=mock_emb, collection_name=COLLECTION)
     _stub_bm25(store)
 
+    # When
     await store.hybrid_search(Query(text="semantic query"), top_k=5)
 
+    # Then
     mock_emb.embed_text.assert_awaited_once_with("semantic query")
     prefetch = mock_client.query_points.call_args.kwargs["prefetch"]
     assert prefetch[0].query == [0.4, 0.5, 0.6]
 
 
 async def test_hybrid_search_forwards_filters_and_maps_scored_points() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_client.query_points.return_value = SimpleNamespace(
         points=[
@@ -292,14 +326,16 @@ async def test_hybrid_search_forwards_filters_and_maps_scored_points() -> None:
     )
     store = QdrantVectorStore(mock_client, embedder=_mock_embedder(), collection_name=COLLECTION)
     _stub_bm25(store)
-
     query = Query(
         text="filtered search",
         embedding=[0.1, 0.2, 0.3],
         filters={"document_id": "doc-42", "page": [1, 2], "metadata.author": "Ada"},
     )
+
+    # When
     results = await store.hybrid_search(query, top_k=3)
 
+    # Then
     expected_filter = models.Filter(
         must=[
             models.FieldCondition(key="document_id", match=models.MatchValue(value="doc-42")),
@@ -322,43 +358,57 @@ async def test_hybrid_search_forwards_filters_and_maps_scored_points() -> None:
 
 
 async def test_hybrid_search_empty_results_and_non_positive_top_k() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     mock_emb = _mock_embedder()
     store = QdrantVectorStore(mock_client, embedder=mock_emb, collection_name=COLLECTION)
     _stub_bm25(store)
 
+    # When / Then: a non-positive top_k short-circuits without querying
     assert await store.hybrid_search(Query(text="nothing"), top_k=0) == []
     mock_emb.embed_text.assert_not_awaited()
     mock_client.query_points.assert_not_awaited()
 
+    # When / Then: an empty result set from Qdrant maps to an empty list
     assert await store.hybrid_search(Query(text="empty"), top_k=5) == []
 
 
 async def test_hybrid_search_wraps_errors_and_invalid_payloads() -> None:
+    # Given
     mock_client = _mock_qdrant_client()
     failing_emb = _mock_embedder(embed_text_side_effect=RuntimeError("embed failed"))
     store = QdrantVectorStore(mock_client, embedder=failing_emb, collection_name=COLLECTION)
     _stub_bm25(store)
 
+    # When / Then: a failing embedder is wrapped
     with pytest.raises(ValueError, match="Failed to embed query"):
         await store.hybrid_search(Query(text="boom"))
 
+    # Given: a failing Qdrant client
     mock_client.query_points.side_effect = RuntimeError("qdrant failed")
     ok_store = QdrantVectorStore(mock_client, embedder=_mock_embedder(), collection_name=COLLECTION)
     _stub_bm25(ok_store)
+
+    # When / Then: the Qdrant failure is wrapped too
     with pytest.raises(ValueError, match="Qdrant hybrid search failed"):
         await ok_store.hybrid_search(Query(text="boom", embedding=[0.1, 0.2, 0.3]))
 
+    # Given: a response payload missing a required field
     mock_client.query_points.side_effect = None
     mock_client.query_points.return_value = SimpleNamespace(
         points=[models.ScoredPoint(id="1", version=1, score=0.5, payload={"chunk_id": "c1"})]
     )
+
+    # When / Then: the missing payload field is reported
     with pytest.raises(ValueError, match="missing payload field"):
         await ok_store.hybrid_search(Query(text="bad payload", embedding=[0.1, 0.2, 0.3]))
 
+    # Given: a failing BM25 computation
     def fail_bm25(_text: str) -> models.SparseVector:
         raise RuntimeError("bm25 failed")
 
     ok_store._compute_bm25_sparse = fail_bm25  # type: ignore[method-assign]
+
+    # When / Then: the BM25 failure is wrapped
     with pytest.raises(ValueError, match="Failed to compute BM25 query vector"):
         await ok_store.hybrid_search(Query(text="bm25 error", embedding=[0.1, 0.2, 0.3]))

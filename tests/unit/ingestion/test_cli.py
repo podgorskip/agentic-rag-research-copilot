@@ -85,11 +85,15 @@ def test_ingests_pdf_end_to_end(
     pdf_path: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
     caplog.set_level(logging.INFO)
 
-    assert cli.main([pdf_path]) == _EXIT_OK
+    # When
+    exit_code = cli.main([pdf_path])
 
+    # Then
+    assert exit_code == _EXIT_OK
     assert stored_count(qdrant) == 1
     assert f"OK {pdf_path}: 1 chunks" in caplog.text
     assert "Ingested 1 of 1 sources" in caplog.text
@@ -101,11 +105,15 @@ def test_unreadable_file_does_not_abort_the_batch(
     pdf_path: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
     caplog.set_level(logging.INFO)
 
-    assert cli.main(["missing.pdf", pdf_path]) == _EXIT_INGESTION_FAILED
+    # When
+    exit_code = cli.main(["missing.pdf", pdf_path])
 
+    # Then
+    assert exit_code == _EXIT_INGESTION_FAILED
     assert stored_count(qdrant) == 1
     assert "FAILED missing.pdf: load stage failed" in caplog.text
     assert "Ingested 1 of 2 sources" in caplog.text
@@ -117,12 +125,16 @@ def test_corrupt_pdf_is_reported(
     tmp_path: Path,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
     corrupt = tmp_path / "corrupt.pdf"
     corrupt.write_bytes(b"this is not a pdf")
 
-    assert cli.main([str(corrupt)]) == _EXIT_INGESTION_FAILED
+    # When
+    exit_code = cli.main([str(corrupt)])
 
+    # Then
+    assert exit_code == _EXIT_INGESTION_FAILED
     assert "load stage failed" in caplog.text
     assert stored_count(qdrant) == 0
 
@@ -132,10 +144,14 @@ def test_unsupported_source_is_reported(
     fake_ollama: Callable[[Handler], None],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
 
-    assert cli.main(["notes.txt"]) == _EXIT_INGESTION_FAILED
+    # When
+    exit_code = cli.main(["notes.txt"])
 
+    # Then
+    assert exit_code == _EXIT_INGESTION_FAILED
     assert "Cannot determine source type" in caplog.text
 
 
@@ -145,13 +161,17 @@ def test_ollama_network_failure_is_reported(
     pdf_path: str,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     def refuse(request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("connection refused", request=request)
 
     fake_ollama(refuse)
 
-    assert cli.main([pdf_path]) == _EXIT_INGESTION_FAILED
+    # When
+    exit_code = cli.main([pdf_path])
 
+    # Then
+    assert exit_code == _EXIT_INGESTION_FAILED
     assert "embed stage failed" in caplog.text
     assert stored_count(qdrant) == 0
 
@@ -163,11 +183,15 @@ def test_qdrant_failure_is_reported(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
     monkeypatch.setattr(qdrant, "upsert", AsyncMock(side_effect=ConnectionError("qdrant down")))
 
-    assert cli.main([pdf_path]) == _EXIT_INGESTION_FAILED
+    # When
+    exit_code = cli.main([pdf_path])
 
+    # Then
+    assert exit_code == _EXIT_INGESTION_FAILED
     assert "upsert stage failed" in caplog.text
     assert "qdrant down" in caplog.text
 
@@ -177,10 +201,13 @@ def test_qdrant_client_is_closed(
     fake_ollama: Callable[[Handler], None],
     pdf_path: str,
 ) -> None:
+    # Given
     fake_ollama(embed_ok)
 
+    # When
     cli.main([pdf_path])
 
+    # Then
     assert isinstance(qdrant.close, AsyncMock)
     qdrant.close.assert_awaited_once()
 
@@ -195,23 +222,34 @@ def test_invalid_configuration_exits_with_config_code(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
+    # Given
     monkeypatch.setenv(variable, value)
 
-    assert cli.main(["paper.pdf"]) == _EXIT_INVALID_CONFIG
+    # When
+    exit_code = cli.main(["paper.pdf"])
 
+    # Then
+    assert exit_code == _EXIT_INVALID_CONFIG
     assert "Invalid configuration" in caplog.text
 
 
 def test_requires_at_least_one_source(capsys: pytest.CaptureFixture[str]) -> None:
+    # When
     with pytest.raises(SystemExit) as caught:
         cli.main([])
 
+    # Then
     assert caught.value.code == 2
 
 
 def test_settings_ignore_unrelated_dotenv_entries(tmp_path: Path) -> None:
+    # Given
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     (config_dir / ".env").write_text("QDRANT_VERSION=v1\nRAG_EMBEDDING_MODEL=custom\n")
 
-    assert IngestionSettings().embedding_model == "custom"
+    # When
+    settings = IngestionSettings()
+
+    # Then
+    assert settings.embedding_model == "custom"

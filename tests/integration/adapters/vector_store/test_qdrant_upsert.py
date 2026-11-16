@@ -66,8 +66,10 @@ def point_id_for(chunk: Chunk) -> str:
 async def test_upsert_creates_collection_with_dense_and_sparse_vectors(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # When
     await store.upsert([make_chunk(0)])
 
+    # Then
     info = await client.get_collection(store.collection_name)
     vectors = info.config.params.vectors
     sparse = info.config.params.sparse_vectors
@@ -82,10 +84,13 @@ async def test_upsert_creates_collection_with_dense_and_sparse_vectors(
 async def test_upsert_persists_every_chunk_as_a_point(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunks = [make_chunk(index) for index in range(5)]
 
+    # When
     await store.upsert(chunks)
 
+    # Then
     assert (await client.count(store.collection_name, exact=True)).count == len(chunks)
     points, _ = await client.scroll(store.collection_name, with_payload=True, limit=10)
     assert {point.id for point in points} == {point_id_for(chunk) for chunk in chunks}
@@ -94,14 +99,17 @@ async def test_upsert_persists_every_chunk_as_a_point(
 async def test_upsert_stores_text_and_metadata_in_payload(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunk = make_chunk(
         0,
         text="Hybrid search combines BM25 and dense vectors. Zażółć gęślą jaźń.",
         metadata={"chunk_index": 0, "page": 3, "author": "Ada", "reviewed": True, "tags": ["ir"]},
     )
 
+    # When
     await store.upsert([chunk])
 
+    # Then
     point = (
         await client.retrieve(store.collection_name, ids=[point_id_for(chunk)], with_payload=True)
     )[0]
@@ -122,10 +130,13 @@ async def test_upsert_stores_text_and_metadata_in_payload(
 async def test_upsert_stores_dense_embedding_for_each_point(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunk = make_chunk(0, embedding=UNIT_VECTOR)
 
+    # When
     await store.upsert([chunk])
 
+    # Then
     point = (
         await client.retrieve(store.collection_name, ids=[point_id_for(chunk)], with_vectors=True)
     )[0]
@@ -136,9 +147,11 @@ async def test_upsert_stores_dense_embedding_for_each_point(
 async def test_metadata_is_queryable_through_payload_filter(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunks = [make_chunk(index, metadata={"page": index % 2}) for index in range(4)]
     await store.upsert(chunks)
 
+    # When
     page_zero, _ = await client.scroll(
         store.collection_name,
         scroll_filter=models.Filter(
@@ -148,6 +161,7 @@ async def test_metadata_is_queryable_through_payload_filter(
         limit=10,
     )
 
+    # Then
     expected = {point_id_for(chunk) for chunk in chunks if chunk.metadata["page"] == 0}
     assert {point.id for point in page_zero} == expected
 
@@ -155,10 +169,13 @@ async def test_metadata_is_queryable_through_payload_filter(
 async def test_upsert_preserves_document_ids_across_documents(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     chunks = [make_chunk(0, document_id="doc_a"), make_chunk(0, document_id="doc_b")]
 
+    # When
     await store.upsert(chunks)
 
+    # Then
     by_document, _ = await client.scroll(
         store.collection_name,
         scroll_filter=models.Filter(
@@ -175,12 +192,15 @@ async def test_upsert_preserves_document_ids_across_documents(
 async def test_reupserting_a_chunk_updates_it_in_place(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # Given
     original = make_chunk(0, text="original text")
     await store.upsert([original])
-
     revised = make_chunk(0, text="revised text", metadata={"chunk_index": 0, "page": 9})
+
+    # When
     await store.upsert([revised])
 
+    # Then
     assert (await client.count(store.collection_name, exact=True)).count == 1
     point = (
         await client.retrieve(store.collection_name, ids=[point_id_for(revised)], with_payload=True)
@@ -193,6 +213,8 @@ async def test_reupserting_a_chunk_updates_it_in_place(
 async def test_upsert_empty_list_leaves_database_untouched(
     store: QdrantVectorStore, client: AsyncQdrantClient
 ) -> None:
+    # When
     await store.upsert([])
 
+    # Then
     assert not await client.collection_exists(store.collection_name)

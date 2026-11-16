@@ -101,15 +101,18 @@ async def _seed_corpus(vector_store: QdrantVectorStore) -> None:
 async def test_end_to_end_retrieval_pipeline_ranks_relevant_chunk_first(
     retrieval_pipeline: tuple[RetrievalService, QdrantVectorStore],
 ) -> None:
+    # Given
     service, vector_store = retrieval_pipeline
     await _seed_corpus(vector_store)
 
+    # When
     results = await service.retrieve(
         Query(text="How does Reciprocal Rank Fusion combine dense and BM25 rankings?"),
         initial_top_k=4,
         final_top_k=2,
     )
 
+    # Then
     assert len(results) == 2
     assert results[0].id == "c-exact-rrf"
     assert results[0].score is not None
@@ -122,9 +125,11 @@ async def test_end_to_end_retrieval_pipeline_ranks_relevant_chunk_first(
 async def test_end_to_end_retrieval_pipeline_respects_query_filters(
     retrieval_pipeline: tuple[RetrievalService, QdrantVectorStore],
 ) -> None:
+    # Given
     service, vector_store = retrieval_pipeline
     await _seed_corpus(vector_store)
 
+    # When
     results = await service.retrieve(
         Query(
             text="How does Reciprocal Rank Fusion work?",
@@ -134,6 +139,7 @@ async def test_end_to_end_retrieval_pipeline_respects_query_filters(
         final_top_k=2,
     )
 
+    # Then
     assert len(results) == 1
     assert results[0].id == "c-qdrant-ops"
     assert results[0].document_id == "doc-qdrant"
@@ -143,15 +149,22 @@ async def test_end_to_end_retrieval_pipeline_respects_query_filters(
 async def test_end_to_end_retrieval_pipeline_returns_empty_when_no_candidates(
     retrieval_pipeline: tuple[RetrievalService, QdrantVectorStore],
 ) -> None:
+    # Given
     service, vector_store = retrieval_pipeline
     await vector_store.ensure_collection(vector_size=3)
 
+    # When / Then: no chunks have been seeded yet
     assert await service.retrieve(Query(text="nonexistent topic")) == []
 
+    # Given: a seeded corpus but a filter matching no document
     await _seed_corpus(vector_store)
+
+    # When
     filtered = await service.retrieve(
         Query(text="Reciprocal Rank Fusion", filters={"document_id": "nonexistent-doc"}),
         initial_top_k=5,
         final_top_k=3,
     )
+
+    # Then
     assert filtered == []

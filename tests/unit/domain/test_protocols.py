@@ -65,46 +65,68 @@ class DummyLLM:
 
 
 async def test_ingestion_protocols_compliance() -> None:
+    # Given
     loader = DummyLoader()
     chunker = DummyChunker()
 
+    # Then
     assert isinstance(loader, DocumentLoaderProtocol)
     assert isinstance(chunker, ChunkerProtocol)
 
+    # When
     doc = await loader.load("file://test.pdf")
     chunks = chunker.chunk(doc)
+
+    # Then
     assert len(chunks) == 1
     assert chunks[0].document_id == "d1"
 
 
 async def test_retrieval_protocols_compliance() -> None:
+    # Given
     embedder = DummyEmbedder()
     store = DummyVectorStore()
     reranker = DummyReranker()
 
+    # Then
     assert isinstance(embedder, EmbedderProtocol)
     assert isinstance(store, VectorStoreProtocol)
     assert isinstance(reranker, RerankerProtocol)
 
+    # When
     vec = await embedder.embed_text("hello")
     batch_vecs = await embedder.embed_batch(["hello", "world"])
+
+    # Then
     assert len(vec) == 2
     assert len(batch_vecs) == 2
 
+    # When
     q = Query(text="hello", embedding=vec)
     await store.upsert([])
     results = await store.hybrid_search(q, top_k=5)
     reranked = await reranker.rerank(q.text, results, top_k=1)
+
+    # Then
     assert len(reranked) == 1
 
 
 async def test_llm_protocol_compliance() -> None:
+    # Given
     llm = DummyLLM()
+
+    # Then
     assert isinstance(llm, LLMProtocol)
 
+    # When
     text_resp = await llm.generate_text("Rewrite query")
+
+    # Then
     assert text_resp == "Echo: Rewrite query"
 
+    # When
     structured_resp = await llm.generate_structured("Grade chunks", GradeResult)
+
+    # Then
     assert isinstance(structured_resp, GradeResult)
     assert structured_resp.is_relevant is True

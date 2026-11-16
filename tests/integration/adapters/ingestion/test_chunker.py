@@ -61,21 +61,16 @@ def pipeline_server() -> Iterator[str]:
 
 
 async def test_end_to_end_ingestion_pipeline(pipeline_server: str) -> None:
-    """Test the complete ingestion pipeline from HTML loading to document chunking.
-
-    Args:
-        pipeline_server: URL of test HTTP server providing HTML content.
-
-    Returns:
-        Multiple chunks from the loaded and processed document with proper metadata.
-    """
+    """Test the complete ingestion pipeline from HTML loading to document chunking."""
+    # Given
     loader = TrafilaturaHTMLLoader()
     chunker = LangchainTextChunker(chunk_size=200, chunk_overlap=50)
 
+    # When
     document = await loader.load(pipeline_server)
-
     chunks = chunker.chunk(document)
 
+    # Then
     assert len(chunks) > 1
     assert chunks[0].metadata["parser"] == "trafilatura"
     assert chunks[0].document_id == document.id

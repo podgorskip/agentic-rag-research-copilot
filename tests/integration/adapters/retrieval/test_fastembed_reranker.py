@@ -3,6 +3,7 @@ from agentic_rag_copilot.domain.models import Chunk
 
 
 async def test_fastembed_reranker_ranks_relevant_chunk_first() -> None:
+    # Given
     reranker = FastEmbedReranker()
     chunks = [
         Chunk(
@@ -28,12 +29,14 @@ async def test_fastembed_reranker_ranks_relevant_chunk_first() -> None:
         ),
     ]
 
+    # When
     ranked = await reranker.rerank(
         query="How does Reciprocal Rank Fusion combine BM25 and dense search?",
         chunks=chunks,
         top_k=2,
     )
 
+    # Then
     assert len(ranked) == 2
     assert ranked[0].id == "relevant"
     assert ranked[0].score is not None

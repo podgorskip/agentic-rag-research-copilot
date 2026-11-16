@@ -47,24 +47,32 @@ def build_pipeline(
     ],
 )
 def test_detect_source_type(uri: str, expected: SourceType) -> None:
-    assert detect_source_type(uri) is expected
+    # When
+    detected = detect_source_type(uri)
+
+    # Then
+    assert detected is expected
 
 
 @pytest.mark.parametrize("uri", ["notes.txt", "folder/file", "ftp://host/data"])
 def test_detect_source_type_rejects_unknown(uri: str) -> None:
+    # When / Then
     with pytest.raises(ValueError, match="Cannot determine source type"):
         detect_source_type(uri)
 
 
 async def test_ingest_stores_embedded_chunks() -> None:
+    # Given
     embedder = MockEmbedder()
     store = InMemoryVectorStore()
     loader = MockDocumentLoader(content="x" * 50)
 
+    # When
     response = await build_pipeline(loader, MockChunker(chunk_size=20), embedder, store).ingest(
         PDF_REQUEST
     )
 
+    # Then
     assert response.chunks_created == 3
     assert len(embedder.batches) == 1
     assert len(store.chunks) == 3
@@ -74,6 +82,7 @@ async def test_ingest_stores_embedded_chunks() -> None:
 
 
 async def test_ingest_routes_by_source_type() -> None:
+    # Given
     pdf_loader = MockDocumentLoader()
     html_loader = MockDocumentLoader(source_type=SourceType.HTML)
     pipeline = IngestionPipeline(
@@ -83,19 +92,24 @@ async def test_ingest_routes_by_source_type() -> None:
         vector_store=InMemoryVectorStore(),
     )
 
+    # When
     await pipeline.ingest(IngestRequest(source_uri="https://x.test", source_type=SourceType.HTML))
 
+    # Then
     assert html_loader.loaded_uris == ["https://x.test"]
     assert pdf_loader.loaded_uris == []
 
 
 async def test_load_failure_stops_the_flow() -> None:
+    # Given
     loader = MockDocumentLoader(failures={"paper.pdf": FileNotFoundError("no such file")})
     chunker = MockChunker()
 
+    # When
     with pytest.raises(IngestionError, match="no such file") as caught:
         await build_pipeline(loader=loader, chunker=chunker).ingest(PDF_REQUEST)
 
+    # Then
     assert caught.value.stage is IngestionStage.LOAD
     assert caught.value.source_uri == "paper.pdf"
     assert isinstance(caught.value.__cause__, FileNotFoundError)
@@ -103,68 +117,86 @@ async def test_load_failure_stops_the_flow() -> None:
 
 
 async def test_missing_loader_is_a_load_failure() -> None:
+    # Given
     request = IngestRequest(source_uri="https://x.test", source_type=SourceType.HTML)
 
+    # When
     with pytest.raises(IngestionError) as caught:
         await build_pipeline().ingest(request)
 
+    # Then
     assert caught.value.stage is IngestionStage.LOAD
 
 
 async def test_chunk_failure_is_reported() -> None:
+    # Given
     chunker = MockChunker(fail_with=RuntimeError("bad split"))
 
+    # When / Then
     with pytest.raises(IngestionError, match="chunk stage failed: bad split"):
         await build_pipeline(chunker=chunker).ingest(PDF_REQUEST)
 
 
 async def test_no_chunks_is_a_failure_and_nothing_is_embedded() -> None:
+    # Given
     class EmptyChunker(MockChunker):
         def chunk(self, document: Document) -> list[Chunk]:
             return []
 
     embedder = MockEmbedder()
 
+    # When
     with pytest.raises(IngestionError, match="no chunks") as caught:
         await build_pipeline(chunker=EmptyChunker(), embedder=embedder).ingest(PDF_REQUEST)
 
+    # Then
     assert caught.value.stage is IngestionStage.CHUNK
     assert embedder.batches == []
 
 
 async def test_embed_failure_stores_nothing() -> None:
+    # Given
     store = InMemoryVectorStore()
     embedder = MockEmbedder(fail_with=ConnectionError("refused"))
 
+    # When
     with pytest.raises(IngestionError, match="embed stage failed: refused"):
         await build_pipeline(embedder=embedder, store=store).ingest(PDF_REQUEST)
 
+    # Then
     assert store.chunks == {}
 
 
 async def test_vector_count_mismatch_stores_nothing() -> None:
+    # Given
     class ShortEmbedder(MockEmbedder):
         async def embed_batch(self, texts: list[str]) -> list[list[float]]:
             return []
 
     store = InMemoryVectorStore()
 
+    # When
     with pytest.raises(IngestionError) as caught:
         await build_pipeline(embedder=ShortEmbedder(), store=store).ingest(PDF_REQUEST)
 
+    # Then
     assert caught.value.stage is IngestionStage.EMBED
     assert store.chunks == {}
 
 
 async def test_upsert_failure_is_reported() -> None:
+    # Given
     store = InMemoryVectorStore(fail_with=ConnectionError("qdrant down"))
 
+    # When / Then
     with pytest.raises(IngestionError, match="upsert stage failed: qdrant down"):
         await build_pipeline(store=store).ingest(PDF_REQUEST)
 
 
 async def test_exception_without_message_still_has_a_reason() -> None:
+    # Given
     embedder = MockEmbedder(fail_with=TimeoutError())
 
+    # When / Then
     with pytest.raises(IngestionError, match="TimeoutError"):
         await build_pipeline(embedder=embedder).ingest(PDF_REQUEST)

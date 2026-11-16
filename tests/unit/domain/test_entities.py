@@ -5,6 +5,7 @@ from agentic_rag_copilot.domain.models import Chunk, Citation, Document, Query, 
 
 
 def test_document_creation_and_immutability() -> None:
+    # When
     doc = Document(
         id="doc-1",
         source_type=SourceType.PDF,
@@ -12,15 +13,19 @@ def test_document_creation_and_immutability() -> None:
         title="Agentic RAG Paper",
         raw_content="Full text of the paper.",
     )
+
+    # Then
     assert doc.id == "doc-1"
     assert doc.source_type == SourceType.PDF
     assert doc.metadata == {}
 
+    # When / Then
     with pytest.raises(ValidationError):
         doc.title = "Mutated Title"
 
 
 def test_document_strict_validation_fails_on_wrong_types() -> None:
+    # When / Then: a non-string raw_content is rejected
     with pytest.raises(ValidationError):
         Document(
             id="doc-1",
@@ -29,6 +34,7 @@ def test_document_strict_validation_fails_on_wrong_types() -> None:
             raw_content=12345,  # type: ignore[arg-type]
         )
 
+    # When / Then: an empty raw_content is rejected
     with pytest.raises(ValidationError):
         Document(
             id="doc-1",
@@ -39,6 +45,7 @@ def test_document_strict_validation_fails_on_wrong_types() -> None:
 
 
 def test_chunk_creation() -> None:
+    # When
     chunk = Chunk(
         id="chunk-1",
         document_id="doc-1",
@@ -46,24 +53,32 @@ def test_chunk_creation() -> None:
         embedding=[0.1, 0.2, 0.3],
         score=0.95,
     )
+
+    # Then
     assert chunk.document_id == "doc-1"
     assert chunk.score == 0.95
     assert chunk.embedding == [0.1, 0.2, 0.3]
 
 
 def test_query_creation() -> None:
+    # When
     query = Query(text="How does hybrid search work?", filters={"year": 2026})
+
+    # Then
     assert query.text == "How does hybrid search work?"
     assert query.filters["year"] == 2026
     assert query.embedding is None
 
 
 def test_citation_creation() -> None:
+    # When
     citation = Citation(
         chunk_id="chunk-1",
         document_id="doc-1",
         source_uri="https://arxiv.org/pdf/1234.5678.pdf",
         quote="Hybrid search combines BM25 and dense vectors.",
     )
+
+    # Then
     assert citation.chunk_id == "chunk-1"
     assert "BM25" in citation.quote

@@ -11,22 +11,30 @@ from agentic_rag_copilot.domain.models import (
 
 
 def test_grade_result_immutability() -> None:
+    # Given
     grade = GradeResult(is_relevant=True, reasoning="Contains exact metrics.")
+
+    # Then
     assert grade.is_relevant is True
 
+    # When / Then
     with pytest.raises(ValidationError):
         grade.is_relevant = False
 
 
 def test_agent_state_mutability_and_progression() -> None:
+    # Given
     state = AgentState(
         original_query="What is ColPali?",
         current_query="What is ColPali?",
     )
+
+    # Then
     assert state.loop_count == 0
     assert state.is_context_sufficient is False
     assert state.final_answer is None
 
+    # When
     state.loop_count += 1
     state.current_query = "ColPali multimodal retrieval architecture"
     state.query_history.append("What is ColPali?")
@@ -46,12 +54,14 @@ def test_agent_state_mutability_and_progression() -> None:
         citations=[citation],
     )
 
+    # Then
     assert state.loop_count == 1
     assert len(state.retrieved_chunks) == 1
     assert state.final_answer.citations[0].chunk_id == "c1"
 
 
 def test_agent_state_rejects_negative_loop_count() -> None:
+    # When / Then
     with pytest.raises(ValidationError):
         AgentState(
             original_query="test",

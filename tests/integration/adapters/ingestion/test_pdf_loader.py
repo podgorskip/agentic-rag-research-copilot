@@ -34,26 +34,33 @@ def empty_pdf_path(tmp_path: Path) -> str:
 
 
 async def test_integration_load_valid_pdf_from_disk(dummy_pdf_path: str) -> None:
+    # Given
     loader = PyMuPDFLoader()
+
+    # When
     document = await loader.load(dummy_pdf_path)
 
+    # Then
     assert "Agentic RAG Copilot" in document.raw_content
     assert document.metadata["page_count"] == 1
     assert document.source_uri == dummy_pdf_path
 
 
 async def test_integration_load_raises_value_error_for_empty_pdf(empty_pdf_path: str) -> None:
+    # Given
     loader = PyMuPDFLoader()
 
+    # When / Then
     with pytest.raises(ValueError, match="No extractable text found"):
         await loader.load(empty_pdf_path)
 
 
 async def test_integration_load_raises_value_error_for_corrupt_file(tmp_path: Path) -> None:
+    # Given
     corrupt_file = tmp_path / "corrupt.pdf"
     corrupt_file.write_text("This is not a real PDF byte structure.")
-
     loader = PyMuPDFLoader()
 
+    # When / Then
     with pytest.raises(ValueError, match="Failed to parse PDF"):
         await loader.load(str(corrupt_file))

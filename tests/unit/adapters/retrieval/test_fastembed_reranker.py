@@ -19,11 +19,15 @@ def _make_chunk(chunk_id: str, text: str, **metadata: object) -> Chunk:
 
 
 def test_reranker_implements_protocol() -> None:
+    # When
     reranker = FastEmbedReranker()
+
+    # Then
     assert isinstance(reranker, RerankerProtocol)
 
 
 async def test_rerank_orders_descending_slices_top_k_and_preserves_metadata() -> None:
+    # Given
     reranker = FastEmbedReranker()
     chunks = [
         _make_chunk("c1", "distractor one", page=1, source="a.pdf"),
@@ -34,8 +38,10 @@ async def test_rerank_orders_descending_slices_top_k_and_preserves_metadata() ->
     mock_encoder.rerank.return_value = [0.15, 0.92, 0.48]
     reranker._encoder = mock_encoder  # type: ignore[assignment]
 
+    # When
     result = await reranker.rerank("query", chunks, top_k=2)
 
+    # Then
     mock_encoder.rerank.assert_called_once_with(
         query="query",
         documents=["distractor one", "exact answer", "partial match"],
@@ -53,20 +59,24 @@ async def test_rerank_orders_descending_slices_top_k_and_preserves_metadata() ->
 
 
 async def test_rerank_when_fewer_chunks_than_top_k_returns_all_sorted() -> None:
+    # Given
     reranker = FastEmbedReranker()
     chunks = [_make_chunk("c1", "first"), _make_chunk("c2", "second")]
     mock_encoder = MagicMock()
     mock_encoder.rerank.return_value = [0.2, 0.8]
     reranker._encoder = mock_encoder  # type: ignore[assignment]
 
+    # When
     result = await reranker.rerank("query", chunks, top_k=5)
 
+    # Then
     assert [chunk.id for chunk in result] == ["c2", "c1"]
 
 
 async def test_rerank_short_circuits_on_empty_chunks_or_non_positive_top_k(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Given
     loader = MagicMock()
     monkeypatch.setattr(
         "agentic_rag_copilot.adapters.retrieval._fastembed_reranker.TextCrossEncoder",
@@ -74,37 +84,49 @@ async def test_rerank_short_circuits_on_empty_chunks_or_non_positive_top_k(
     )
     reranker = FastEmbedReranker()
 
-    assert await reranker.rerank("query", [], top_k=5) == []
-    assert await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=0) == []
-    assert await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=-2) == []
+    # When
+    empty_chunks_result = await reranker.rerank("query", [], top_k=5)
+    zero_top_k_result = await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=0)
+    negative_top_k_result = await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=-2)
+
+    # Then
+    assert empty_chunks_result == []
+    assert zero_top_k_result == []
+    assert negative_top_k_result == []
     loader.assert_not_called()
 
 
 async def test_rerank_wraps_model_loading_and_inference_errors_in_value_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Given
     monkeypatch.setattr(
         "agentic_rag_copilot.adapters.retrieval._fastembed_reranker.TextCrossEncoder",
         MagicMock(side_effect=RuntimeError("model download failed")),
     )
     reranker = FastEmbedReranker()
 
+    # When / Then: a model-loading failure is wrapped
     with pytest.raises(ValueError, match="Cross-encoder reranking failed"):
         await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=1)
 
+    # Given: a loaded encoder that fails during inference
     failing_encoder = MagicMock()
     failing_encoder.rerank.side_effect = RuntimeError("onnx inference failed")
     reranker._encoder = failing_encoder  # type: ignore[assignment]
 
+    # When / Then: the inference failure is wrapped too
     with pytest.raises(ValueError, match="Cross-encoder reranking failed"):
         await reranker.rerank("query", [_make_chunk("c1", "text")], top_k=1)
 
 
 async def test_rerank_raises_value_error_on_mismatched_score_count() -> None:
+    # Given
     reranker = FastEmbedReranker()
     mock_encoder = MagicMock()
     mock_encoder.rerank.return_value = [0.9]
     reranker._encoder = mock_encoder  # type: ignore[assignment]
 
+    # When / Then
     with pytest.raises(ValueError, match="returned 1 scores for 2 chunks"):
         await reranker.rerank("query", [_make_chunk("c1", "a"), _make_chunk("c2", "b")], top_k=2)

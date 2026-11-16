@@ -32,6 +32,7 @@ def build_service(
 
 
 async def test_retrieve_embeds_query_when_embedding_missing_and_forwards_params() -> None:
+    # Given
     embedder = MockEmbedder(dimension=3)
     candidates = [_make_chunk("c1")]
     results = [_make_chunk("c1", score=0.9)]
@@ -40,8 +41,10 @@ async def test_retrieve_embeds_query_when_embedding_missing_and_forwards_params(
     service = build_service(embedder, vector_store, reranker)
     expected_embedding = await MockEmbedder(dimension=3).embed_text("what is RAG?")
 
+    # When
     result = await service.retrieve(Query(text="what is RAG?"), initial_top_k=10, final_top_k=3)
 
+    # Then
     assert result == results
     assert len(embedder.batches) == 1
     searched_query, top_k = vector_store.calls[0]
@@ -55,36 +58,45 @@ async def test_retrieve_embeds_query_when_embedding_missing_and_forwards_params(
 
 
 async def test_retrieve_skips_embedding_when_already_set() -> None:
+    # Given
     embedder = MockEmbedder()
     vector_store = RecordingVectorStore([_make_chunk("c1")])
     reranker = RecordingReranker([_make_chunk("c1", score=0.5)])
     service = build_service(embedder, vector_store, reranker)
     query = Query(text="q", embedding=[1.0, 0.0, 0.0])
 
+    # When
     await service.retrieve(query)
 
+    # Then
     assert embedder.batches == []
     searched_query, _ = vector_store.calls[0]
     assert searched_query.embedding == [1.0, 0.0, 0.0]
 
 
 async def test_retrieve_short_circuits_on_empty_candidates_without_reranking() -> None:
+    # Given
     reranker = RecordingReranker([_make_chunk("c1")])
     service = build_service(vector_store=RecordingVectorStore([]), reranker=reranker)
 
+    # When
     result = await service.retrieve(Query(text="q", embedding=[0.0]))
 
+    # Then
     assert result == []
     assert reranker.calls == []
 
 
 async def test_retrieve_uses_default_top_k_values_when_not_specified() -> None:
+    # Given
     vector_store = RecordingVectorStore([_make_chunk(f"c{i}") for i in range(25)])
     reranker = RecordingReranker([_make_chunk("c0", score=1.0)])
     service = build_service(vector_store=vector_store, reranker=reranker)
 
+    # When
     await service.retrieve(Query(text="q", embedding=[0.0]))
 
+    # Then
     _, initial_top_k = vector_store.calls[0]
     _, _, final_top_k = reranker.calls[0]
     assert initial_top_k == 20
@@ -92,6 +104,7 @@ async def test_retrieve_uses_default_top_k_values_when_not_specified() -> None:
 
 
 async def test_retrieve_instruments_hybrid_search_and_rerank_spans() -> None:
+    # Given
     langfuse_client = _fake_langfuse()
     vector_store = RecordingVectorStore([_make_chunk("c1"), _make_chunk("c2")])
     reranker = RecordingReranker([_make_chunk("c1", score=0.77)])
@@ -99,8 +112,10 @@ async def test_retrieve_instruments_hybrid_search_and_rerank_spans() -> None:
         vector_store=vector_store, reranker=reranker, langfuse_client=langfuse_client
     )
 
+    # When
     await service.retrieve(Query(text="q", embedding=[0.0]), initial_top_k=2, final_top_k=1)
 
+    # Then
     assert langfuse_client.start_as_current_span.call_count == 2
     hybrid_call, rerank_call = langfuse_client.start_as_current_span.call_args_list
     assert hybrid_call.kwargs["name"] == "hybrid_search"
@@ -122,6 +137,7 @@ async def test_retrieve_instruments_hybrid_search_and_rerank_spans() -> None:
 
 
 async def test_retrieve_records_no_top_score_when_reranker_returns_nothing() -> None:
+    # Given
     langfuse_client = _fake_langfuse()
     service = build_service(
         vector_store=RecordingVectorStore([_make_chunk("c1")]),
@@ -129,8 +145,10 @@ async def test_retrieve_records_no_top_score_when_reranker_returns_nothing() -> 
         langfuse_client=langfuse_client,
     )
 
+    # When
     result = await service.retrieve(Query(text="q", embedding=[0.0]))
 
+    # Then
     assert result == []
     span = langfuse_client.start_as_current_span.return_value.__enter__.return_value
     _, rerank_update = span.update.call_args_list
