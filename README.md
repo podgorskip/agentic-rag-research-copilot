@@ -68,6 +68,19 @@ just validate-retrieval --output docs/validation/raw_results.md
 
 This compares **Dense-only**, **Hybrid (Dense + BM25)**, and **Hybrid + Reranked** rankings across 12 curated queries (`exact_term`, `conceptual`, `multi_hop`). See [`docs/validation/milestone_3_retrieval_quality.md`](docs/validation/milestone_3_retrieval_quality.md) for the Milestone 3 evaluation report and parameter choices.
 
+## Validating the LLM Adapter
+
+The `OllamaLLM` adapter has unit tests that mock the HTTP transport and run without any external
+service. A separate integration suite exercises it against a **real** local Ollama instance:
+
+```bash
+ollama pull llama3.2  # or set RAG_LLM_MODEL to a model you already have pulled
+uv run pytest tests/integration/adapters/llm -v
+```
+
+These tests are skipped automatically (not failed) when Ollama isn't reachable at
+`RAG_OLLAMA_URL`, so the rest of the suite stays green on machines without it installed.
+
 ## Code Quality, Typechecking & Testing
 
 The repository enforces strict engineering standards in CI:
