@@ -32,3 +32,7 @@ coverage.xml
 # macOS
 .DS_Store
 .private/
+
+# E2E ingestion reports
+e2e/output/*
+!e2e/output/.gitkeep

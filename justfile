@@ -44,6 +44,10 @@ ingest +sources:
 validate-retrieval *args:
     uv run python scripts/validate_retrieval.py {{args}}
 
+# Run the predefined e2e ingestion + retrieval scenario (PDFs + Wikipedia pages)
+e2e:
+    ./e2e/run.sh
+
 # Start Qdrant vector database
 qdrant-up:
     docker compose up -d --wait qdrant
