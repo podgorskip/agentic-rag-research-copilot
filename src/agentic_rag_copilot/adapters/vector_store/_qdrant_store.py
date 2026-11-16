@@ -9,7 +9,7 @@ from agentic_rag_copilot.domain.models import Chunk, Query
 from agentic_rag_copilot.domain.protocols import EmbedderProtocol, VectorStoreProtocol
 from agentic_rag_copilot.logging import get_logger
 
-logger = get_logger(__name__)
+_logger = get_logger(__name__)
 
 _DENSE_VECTOR_NAME: Final[str] = "dense"
 _SPARSE_VECTOR_NAME: Final[str] = "bm25"
@@ -67,7 +67,7 @@ class QdrantVectorStore(VectorStoreProtocol):
                 },
             )
         except Exception as exc:
-            logger.error(f"Failed to ensure Qdrant collection '{self.collection_name}': {exc}")
+            _logger.error(f"Failed to ensure Qdrant collection '{self.collection_name}': {exc}")
             raise ValueError(
                 f"Failed to ensure Qdrant collection '{self.collection_name}': {exc}"
             ) from exc
@@ -106,7 +106,7 @@ class QdrantVectorStore(VectorStoreProtocol):
         try:
             await self.client.upsert(collection_name=self.collection_name, points=points)
         except Exception as exc:
-            logger.error(f"Failed to upsert {len(points)} chunks into Qdrant: {exc}")
+            _logger.error(f"Failed to upsert {len(points)} chunks into Qdrant: {exc}")
             raise ValueError(f"Failed to upsert chunks into Qdrant: {exc}") from exc
 
     async def hybrid_search(self, query: Query, top_k: int = 10) -> list[Chunk]:
@@ -154,7 +154,7 @@ class QdrantVectorStore(VectorStoreProtocol):
                 with_payload=True,
             )
         except Exception as exc:
-            logger.error(f"Hybrid search failed for collection '{self.collection_name}': {exc}")
+            _logger.error(f"Hybrid search failed for collection '{self.collection_name}': {exc}")
             raise ValueError(f"Qdrant hybrid search failed: {exc}") from exc
 
         return [self._to_chunk(point) for point in response.points]
@@ -179,7 +179,7 @@ class QdrantVectorStore(VectorStoreProtocol):
             try:
                 computed = await self._embedder.embed_batch(missing_texts)
             except Exception as exc:
-                logger.error(f"Failed to embed {len(missing_texts)} chunks: {exc}")
+                _logger.error(f"Failed to embed {len(missing_texts)} chunks: {exc}")
                 raise ValueError(f"Failed to embed chunks: {exc}") from exc
 
             if len(computed) != len(missing_indices):
@@ -211,7 +211,7 @@ class QdrantVectorStore(VectorStoreProtocol):
         try:
             return await self._embedder.embed_text(query.text)
         except Exception as exc:
-            logger.error(f"Failed to embed query '{query.text}': {exc}")
+            _logger.error(f"Failed to embed query '{query.text}': {exc}")
             raise ValueError(f"Failed to embed query: {exc}") from exc
 
     async def _embed_bm25_query(self, text: str) -> models.SparseVector:
@@ -231,7 +231,7 @@ class QdrantVectorStore(VectorStoreProtocol):
         try:
             sparse_embedding = await asyncio.to_thread(self._compute_bm25_sparse, text)
         except Exception as exc:
-            logger.error(f"Failed to compute BM25 sparse vector for query '{text}': {exc}")
+            _logger.error(f"Failed to compute BM25 sparse vector for query '{text}': {exc}")
             raise ValueError(f"Failed to compute BM25 query vector: {exc}") from exc
         return sparse_embedding
 

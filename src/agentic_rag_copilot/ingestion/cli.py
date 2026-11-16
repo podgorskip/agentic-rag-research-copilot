@@ -22,7 +22,7 @@ from agentic_rag_copilot.logging import get_logger, setup_logging
 from ._pipeline import IngestionError, IngestionPipeline, detect_source_type
 from ._settings import IngestionSettings
 
-logger = get_logger(__name__)
+_logger = get_logger(__name__)
 
 _EXIT_OK: Final[int] = 0
 _EXIT_INGESTION_FAILED: Final[int] = 1
@@ -83,11 +83,11 @@ async def _ingest_sources(pipeline: IngestionPipeline, sources: Sequence[str]) -
             response = await pipeline.ingest(request)
         except (IngestionError, ValueError) as exc:
             failed += 1
-            logger.error(f"FAILED {source}: {exc}")
+            _logger.error(f"FAILED {source}: {exc}")
         else:
-            logger.info(f"OK {source}: {response.chunks_created} chunks ({response.document_id})")
+            _logger.info(f"OK {source}: {response.chunks_created} chunks ({response.document_id})")
 
-    logger.info(f"Ingested {len(sources) - failed} of {len(sources)} sources")
+    _logger.info(f"Ingested {len(sources) - failed} of {len(sources)} sources")
     return _EXIT_INGESTION_FAILED if failed else _EXIT_OK
 
 
@@ -139,5 +139,5 @@ def main(argv: Sequence[str] | None = None) -> int:
         settings = IngestionSettings()
         return asyncio.run(_run(settings, args.sources))
     except ValueError as exc:
-        logger.error(f"Invalid configuration: {exc}")
+        _logger.error(f"Invalid configuration: {exc}")
         return _EXIT_INVALID_CONFIG

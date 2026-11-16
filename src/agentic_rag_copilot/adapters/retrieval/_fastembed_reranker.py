@@ -7,7 +7,7 @@ from agentic_rag_copilot.domain.models import Chunk
 from agentic_rag_copilot.domain.protocols import RerankerProtocol
 from agentic_rag_copilot.logging import get_logger
 
-logger = get_logger(__name__)
+_logger = get_logger(__name__)
 
 _DEFAULT_MODEL: Final[str] = "jinaai/jina-reranker-v2-base-multilingual"
 _RERANK_SCORE_KEY: Final[str] = "rerank_score"
@@ -47,7 +47,7 @@ class FastEmbedReranker(RerankerProtocol):
         try:
             scores = await asyncio.to_thread(self._score_pairs, query, texts)
         except Exception as exc:
-            logger.error(f"Cross-encoder reranking failed with model '{self._model_name}': {exc}")
+            _logger.error(f"Cross-encoder reranking failed with model '{self._model_name}': {exc}")
             raise ValueError(f"Cross-encoder reranking failed: {exc}") from exc
 
         if len(scores) != len(chunks):

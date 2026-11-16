@@ -10,8 +10,9 @@ This document defines the coding standards and conventions that must be enforced
   ```python
   from agentic_rag_copilot.logging import get_logger, setup_logging
   
-  logger = get_logger(__name__)
+  _logger = get_logger(__name__)
   ```
+- **Module-level logger instances must be private** — name them `_logger`, not `logger`, since they are an implementation detail of the module, not part of its public API
 - Use appropriate log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
 - All log messages follow the standard format: `%(asctime)s - %(name)s - %(levelname)s - %(message)s`
 
@@ -67,6 +68,29 @@ _MAX_RETRIES: Final[int] = 3
 
 - Public constants (used across files) should not have a leading underscore
 
+## Tests
+
+- **Every test must follow the Given/When/Then structure**, with each block marked by a `# Given`, `# When`, and `# Then` comment and separated by a blank line:
+  - **Given**: set up the preconditions and inputs for the test
+  - **When**: perform the single action under test (the call being tested, or a `with pytest.raises(...)` block)
+  - **Then**: assert the expected outcome
+- A test with no separate setup step may omit `# Given` (the action under test doubles as the setup)
+- A test exercising multiple scenarios may repeat the Given/When/Then cycle rather than being split into separate test functions
+
+Example:
+```python
+async def test_retrieve_skips_embedding_when_already_set() -> None:
+    # Given
+    service = build_service()
+    query = Query(text="q", embedding=[1.0, 0.0, 0.0])
+
+    # When
+    await service.retrieve(query)
+
+    # Then
+    assert embedder.batches == []
+```
+
 ## Just Commands
 
 - **Every new command added to the justfile must have a description**
@@ -90,14 +114,18 @@ When contributing to this repository:
 
 ✅ **Do:**
 - Use logging instead of print
+- Keep module-level loggers private (`_logger`)
 - Document all functions with docstrings
 - Use clear, self-documenting code
 - Use `_CONSTANT_NAME: Final[type]` for file-local constants
 - Add descriptions to all justfile commands
+- Structure tests with Given/When/Then comment blocks
 
 ❌ **Don't:**
 - Use print() for output
+- Name a module-level logger `logger` instead of `_logger`
 - Skip docstrings
 - Write unnecessary comments
 - Use bare constants without Final[] annotations (for file-local constants)
 - Add undocumented commands to justfile
+- Write tests without Given/When/Then segregation
