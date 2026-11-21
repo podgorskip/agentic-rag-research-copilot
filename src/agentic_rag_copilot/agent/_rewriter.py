@@ -4,7 +4,7 @@ from agentic_rag_copilot.domain.models import AgentState
 from agentic_rag_copilot.domain.protocols import LLMProtocol
 from agentic_rag_copilot.logging import get_logger
 
-logger = get_logger(__name__)
+_logger = get_logger(__name__)
 
 _SYSTEM_PROMPT: Final[str] = (
     "You are a search query reformulation assistant for a technical RAG system. "
@@ -53,7 +53,7 @@ class QueryRewriter:
             LLMError: Propagated if the underlying LLM call fails.
         """
         prompt = _build_prompt(state, reasoning)
-        logger.debug(
+        _logger.debug(
             f"Rewriting query {state.current_query!r} (history_len={len(state.query_history)})"
         )
         raw_rewrite = await self._llm.generate_text(prompt, system_prompt=_SYSTEM_PROMPT)
