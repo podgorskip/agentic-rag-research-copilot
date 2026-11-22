@@ -44,6 +44,7 @@ class LangchainTextChunker(ChunkerProtocol):
             chunk_id = hashlib.sha256(hash_input).hexdigest()
             metadata: dict[str, Any] = document.metadata.copy()
             metadata["chunk_index"] = index
+            metadata["source_uri"] = document.source_uri
 
             chunks.append(
                 Chunk(
