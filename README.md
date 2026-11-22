@@ -81,6 +81,26 @@ uv run pytest tests/integration/adapters/llm -v
 These tests are skipped automatically (not failed) when Ollama isn't reachable at
 `RAG_OLLAMA_URL`, so the rest of the suite stays green on machines without it installed.
 
+## Validating the Agentic Loop
+
+`AgenticLoopService` (`agent/_loop.py`) runs the self-correcting Retrieve -> Grade -> Rewrite
+loop and then synthesizes a cited answer. With Qdrant and Ollama running (`nomic-embed-text` and
+the `RAG_LLM_MODEL` model pulled):
+
+```bash
+ollama pull llama3.2
+# End-to-end integration tests (in-memory Qdrant; needs .cache/validation/2005.11401.pdf,
+# which `just validate-retrieval` downloads on first run)
+uv run pytest tests/integration/agent -v
+# Per-query rewrite cycles, grader verdicts and citations for the multi_hop queries
+just validate-agent --category multi_hop --reingest --output docs/validation/raw_agent_results.md
+```
+
+`--reingest` is only needed once, so that chunks carry `source_uri` metadata used by citations.
+`RAG_MAX_LOOP_COUNT` caps the number of rewrites (a request makes at most `max_loop_count + 1`
+retrieve/grade passes). See [`docs/validation/milestone_4_agentic_loop.md`](docs/validation/milestone_4_agentic_loop.md)
+and [ADR-005](docs/adrs/ADR-005-agentic-loop.md).
+
 ## Code Quality, Typechecking & Testing
 
 The repository enforces strict engineering standards in CI:
