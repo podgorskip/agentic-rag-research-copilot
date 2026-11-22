@@ -44,6 +44,10 @@ ingest +sources:
 validate-retrieval *args:
     uv run python scripts/validate_retrieval.py {{args}}
 
+# Run the agentic loop over the validation queries (e.g. --category multi_hop)
+validate-agent *args:
+    uv run python scripts/validate_agentic_loop.py {{args}}
+
 # Run the predefined e2e ingestion + retrieval scenario (PDFs + Wikipedia pages)
 e2e:
     ./e2e/run.sh
