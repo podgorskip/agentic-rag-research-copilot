@@ -58,6 +58,24 @@ uv run rag-ingest paper.pdf https://docs.example.org/guide
 A source that fails is reported and the rest still run. The exit code is `0` if everything was ingested, `1` if
 any source failed and `2` if the configuration is invalid. Settings are listed in `config/.env.example`.
 
+### Ingesting via the HTTP API
+
+Start the API (`just run-api`, listening on `http://127.0.0.1:8000`), then either send a URI as JSON:
+
+```bash
+curl -X POST http://127.0.0.1:8000/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"source_uri": "https://docs.example.org/guide", "source_type": "html"}'
+```
+
+or upload a PDF as multipart form data (the file must be 50 MiB or smaller by default):
+
+```bash
+curl -X POST http://127.0.0.1:8000/ingest -F 'file=@paper.pdf;type=application/pdf'
+```
+
+Both return `201` with `{"document_id": ..., "chunks_created": ...}`. Ingesting the same file twice keeps the same `document_id` and does not duplicate chunks.
+
 ## Validating Retrieval Quality
 
 With Qdrant and Ollama running (`nomic-embed-text` pulled), you can run the standalone retrieval benchmark against Lewis et al. (2020) (*arXiv:2005.11401*, cached under `.cache/validation/`):
