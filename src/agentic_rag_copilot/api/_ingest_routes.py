@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 from typing import Final
 
+import anyio
 from fastapi import APIRouter, HTTPException, Request
 from starlette.datastructures import UploadFile
 
@@ -78,7 +79,7 @@ async def _ingest_upload(
             IngestRequest(source_uri=str(stored), source_type=source_type), pipeline
         )
     finally:
-        stored.unlink(missing_ok=True)
+        await anyio.Path(stored).unlink(missing_ok=True)
 
 
 async def _store_upload(upload: UploadFile, max_bytes: int) -> Path:
@@ -101,24 +102,24 @@ async def _store_upload(upload: UploadFile, max_bytes: int) -> Path:
     digest = hashlib.sha256()
     total = 0
 
-    upload_dir = Path(tempfile.gettempdir()) / _UPLOAD_DIR_NAME
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=upload_dir, suffix=suffix, delete=False) as staged:
-        staged_path = Path(staged.name)
+    upload_dir = anyio.Path(tempfile.gettempdir()) / _UPLOAD_DIR_NAME
+    await upload_dir.mkdir(parents=True, exist_ok=True)
+    async with anyio.NamedTemporaryFile(dir=str(upload_dir), suffix=suffix, delete=False) as staged:
+        staged_path = anyio.Path(str(staged.name))
         try:
             while chunk := await upload.read(_READ_CHUNK_BYTES):
                 total += len(chunk)
                 if total > max_bytes:
                     raise _too_large(max_bytes)
                 digest.update(chunk)
-                staged.write(chunk)
+                await staged.write(chunk)
         except BaseException:
-            staged_path.unlink(missing_ok=True)
+            await staged_path.unlink(missing_ok=True)
             raise
 
     stored = upload_dir / f"{digest.hexdigest()}{suffix}"
-    staged_path.replace(stored)
-    return stored
+    await staged_path.replace(stored)
+    return Path(stored)
 
 
 async def _ingest_source(request: IngestRequest, pipeline: IngestionPipeline) -> IngestResponse:
