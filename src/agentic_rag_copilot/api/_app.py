@@ -15,6 +15,7 @@ from agentic_rag_copilot.ingestion.cli import build_pipeline
 from agentic_rag_copilot.logging import get_logger
 
 from ._dependencies import IngestionSettingsDep, ProbeClientDep
+from ._ingest_routes import router as ingest_router
 from ._settings import APISettings
 
 _logger = get_logger(__name__)
@@ -61,6 +62,7 @@ def create_app(
     app.add_exception_handler(EmbeddingError, _unavailable_handler)
     app.add_exception_handler(LLMError, _unavailable_handler)
     app.add_api_route("/health", _health, methods=["GET"])
+    app.include_router(ingest_router)
     return app
 
 
