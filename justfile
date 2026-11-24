@@ -36,6 +36,10 @@ check: lint format-check typecheck test
 run:
     uv run python src/main.py
 
+# Run the HTTP API (FastAPI) with auto-reload for development
+run-api:
+    uv run uvicorn agentic_rag_copilot.api:create_app --factory --reload
+
 # Ingest sources using rag-ingest
 ingest +sources:
     uv run rag-ingest {{sources}}
