@@ -5,6 +5,7 @@ boundary, so the real ``IngestionPipeline``, ``RetrievalService``, and ``Agentic
 wiring runs deterministically without Docker or Ollama.
 """
 
+import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -175,3 +176,109 @@ async def test_ask_maps_unknown_citation_to_502_through_real_synthesizer(
     assert response.status_code == 502
     assert set(response.json()) == {"detail"}
     assert "nonexistent-chunk-999" not in response.text
+
+
+def _parse_sse(body: str) -> list[tuple[str, dict[str, object]]]:
+    """Parse SSE text into ``(event_name, json_data)`` tuples.
+
+    Args:
+        body: Raw ``text/event-stream`` response body.
+
+    Returns:
+        List of parsed ``(event_name, payload_dict)`` tuples.
+    """
+    frames: list[tuple[str, dict[str, object]]] = []
+    for raw_frame in body.strip().split("\n\n"):
+        if not raw_frame.strip():
+            continue
+        lines = raw_frame.splitlines()
+        event_name = lines[0].removeprefix("event: ")
+        data = json.loads(lines[1].removeprefix("data: "))
+        frames.append((event_name, data))
+    return frames
+
+
+async def test_ingest_then_ask_stream_single_hop_emits_sse_and_grounded_citations(
+    in_memory_qdrant: AsyncQdrantClient, shared_reranker: FastEmbedReranker
+) -> None:
+    """Verify ``POST /ask/stream`` emits ordered SSE events and citations stored in Qdrant."""
+    # Given
+    async with _open_client(
+        in_memory_qdrant, shared_reranker, ScriptedLoopLLM(grade_verdicts=[True])
+    ) as http:
+        document_id = await _ingest_sample_paper(http)
+
+        # When
+        response = await http.post(
+            "/ask/stream", json={"query": "What does this paper study?", "top_k": 3}
+        )
+
+    # Then
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert response.headers["cache-control"] == "no-cache"
+    assert response.headers["x-accel-buffering"] == "no"
+    frames = _parse_sse(response.text)
+    assert [name for name, _ in frames] == ["retrieve", "grade", "generate", "answer", "done"]
+    answer_payload = frames[3][1]["payload"]
+    assert isinstance(answer_payload, dict)
+    assert answer_payload["iterations_taken"] == 1
+    stored_ids = await stored_chunk_ids(in_memory_qdrant, _COLLECTION)
+    assert answer_payload["citations"][0]["chunk_id"] in stored_ids
+    assert answer_payload["citations"][0]["document_id"] == document_id
+
+
+async def test_ask_stream_multi_hop_emits_rewrite_events_before_answer(
+    in_memory_qdrant: AsyncQdrantClient, shared_reranker: FastEmbedReranker
+) -> None:
+    """Verify ``POST /ask/stream`` streams rewrite and second-pass events on multi-hop."""
+    # Given
+    async with _open_client(
+        in_memory_qdrant, shared_reranker, ScriptedLoopLLM(grade_verdicts=[False, True])
+    ) as http:
+        await _ingest_sample_paper(http)
+
+        # When
+        response = await http.post(
+            "/ask/stream", json={"query": "Explain the architecture", "top_k": 3}
+        )
+
+    # Then
+    assert response.status_code == 200
+    frames = _parse_sse(response.text)
+    assert [name for name, _ in frames] == [
+        "retrieve",
+        "grade",
+        "rewrite",
+        "retrieve",
+        "grade",
+        "generate",
+        "answer",
+        "done",
+    ]
+    answer_payload = frames[-2][1]["payload"]
+    assert isinstance(answer_payload, dict)
+    assert answer_payload["iterations_taken"] == 2
+
+
+async def test_ask_stream_forwards_error_event_on_real_loop_llm_failure(
+    in_memory_qdrant: AsyncQdrantClient, shared_reranker: FastEmbedReranker
+) -> None:
+    """Verify ``LLMError`` emits an SSE ``error`` event without leaking details or ``done``."""
+    # Given
+    async with _open_client(
+        in_memory_qdrant,
+        shared_reranker,
+        ScriptedLoopLLM(fail_with=LLMError("secret ollama crash")),
+    ) as http:
+        await _ingest_sample_paper(http)
+
+        # When
+        response = await http.post("/ask/stream", json={"query": "What does this paper study?"})
+
+    # Then
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    frames = _parse_sse(response.text)
+    assert [name for name, _ in frames] == ["retrieve", "error"]
+    assert "secret ollama crash" not in response.text
