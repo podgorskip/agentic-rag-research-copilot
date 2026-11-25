@@ -1,8 +1,11 @@
 import time
+from collections.abc import AsyncIterator
+from typing import Final
 
 from langfuse import Langfuse, get_client
 
 from agentic_rag_copilot.domain.models import (
+    AgentEvent,
     AgentState,
     AskRequest,
     AskResponse,
@@ -20,6 +23,8 @@ from ._settings import AgentSettings
 from ._synthesizer import AnswerSynthesizer
 
 _logger = get_logger(__name__)
+
+_STREAM_ERROR_DETAIL: Final[str] = "An error occurred while processing the request"
 
 
 class AgenticLoopService:
@@ -61,6 +66,9 @@ class AgenticLoopService:
     async def ask(self, request: AskRequest) -> AskResponse:
         """Answer a question by iterating retrieval, grading and rewriting until sufficient.
 
+        Consumes the same underlying state machine as :meth:`ask_stream`, returning the
+        terminal ``AskResponse`` or re-raising the original exception on failure.
+
         Args:
             request: User question, final ``top_k`` per retrieval pass, and metadata filters.
 
@@ -74,6 +82,52 @@ class AgenticLoopService:
             ValueError: Propagated if the rewriter returns an empty query or the synthesizer
                 rejects a citation of an unknown chunk.
         """
+        errors: list[Exception] = []
+        answer_payload: dict[str, object] | None = None
+
+        async for event in self._stream_events(request, error_holder=errors):
+            if event.type == "answer":
+                answer_payload = event.payload
+
+        if errors:
+            raise errors[0]
+        if answer_payload is None:
+            raise RuntimeError("Agentic loop terminated without producing an answer event.")
+        return AskResponse.model_validate(answer_payload)
+
+    async def ask_stream(self, request: AskRequest) -> AsyncIterator[AgentEvent]:
+        """Stream one ``AgentEvent`` per loop step until ``answer`` or ``error``.
+
+        Event order for a single-hop success is ``retrieve -> grade -> generate -> answer``.
+        Each rewrite cycle appends ``rewrite -> retrieve -> grade`` before ``generate -> answer``.
+        On an unrecoverable failure, logs the error, yields a terminal ``error`` event, and
+        closes the stream without raising.
+
+        Args:
+            request: User question, final ``top_k`` per retrieval pass, and metadata filters.
+
+        Yields:
+            Ordered ``AgentEvent`` instances describing progress and the final answer or error.
+        """
+        async for event in self._stream_events(request):
+            yield event
+
+    async def _stream_events(
+        self,
+        request: AskRequest,
+        *,
+        error_holder: list[Exception] | None = None,
+    ) -> AsyncIterator[AgentEvent]:
+        """Execute the single Rewrite -> Retrieve -> Grade -> Generate state machine.
+
+        Args:
+            request: User question, retrieval ``top_k``, and metadata filters.
+            error_holder: Optional list where an unrecoverable exception is recorded so
+                :meth:`ask` can re-raise the original error after the stream terminates.
+
+        Yields:
+            ``AgentEvent`` objects for each step of the loop.
+        """
         state = AgentState(
             original_query=request.query,
             current_query=request.query,
@@ -81,55 +135,104 @@ class AgenticLoopService:
         )
         iterations = 0
 
-        with self._langfuse.start_as_current_span(
-            name="agentic_loop",
-            input={"query": request.query, "top_k": request.top_k},
-        ) as span:
-            while True:
-                retrieved = await self._retrieval.retrieve(
-                    Query(text=state.current_query, filters=request.filters),
-                    final_top_k=request.top_k,
+        try:
+            with self._langfuse.start_as_current_span(
+                name="agentic_loop",
+                input={"query": request.query, "top_k": request.top_k},
+            ) as span:
+                while True:
+                    retrieved = await self._retrieval.retrieve(
+                        Query(text=state.current_query, filters=request.filters),
+                        final_top_k=request.top_k,
+                    )
+                    iterations += 1
+                    added = _merge_chunks(state, retrieved)
+                    _logger.info(
+                        f"Pass {iterations}: query={state.current_query!r} "
+                        f"retrieved={len(retrieved)} new={added} "
+                        f"total={len(state.retrieved_chunks)}"
+                    )
+                    yield AgentEvent(
+                        type="retrieve",
+                        iteration=iterations,
+                        payload={
+                            "query": state.current_query,
+                            "retrieved_count": len(retrieved),
+                            "total_chunks": len(state.retrieved_chunks),
+                        },
+                    )
+
+                    grade = await self._traced_grade(state, iterations)
+                    state.is_context_sufficient = grade.is_relevant
+                    yield AgentEvent(
+                        type="grade",
+                        iteration=iterations,
+                        payload={
+                            "is_context_sufficient": grade.is_relevant,
+                            "reasoning": grade.reasoning,
+                        },
+                    )
+                    if state.is_context_sufficient or state.loop_count >= self._max_loop_count:
+                        break
+
+                    state.current_query = await self._traced_rewrite(state, grade.reasoning)
+                    state.query_history.append(state.current_query)
+                    state.loop_count += 1
+                    yield AgentEvent(
+                        type="rewrite",
+                        iteration=iterations,
+                        payload={"query": state.current_query},
+                    )
+
+                if not state.is_context_sufficient:
+                    _logger.warning(
+                        f"max_loop_count={self._max_loop_count} reached without sufficient "
+                        "context; synthesizing best-effort answer."
+                    )
+
+                yield AgentEvent(
+                    type="generate",
+                    iteration=iterations,
+                    payload={
+                        "query": state.original_query,
+                        "chunk_count": len(state.retrieved_chunks),
+                    },
                 )
-                iterations += 1
-                added = _merge_chunks(state, retrieved)
-                _logger.info(
-                    f"Pass {iterations}: query={state.current_query!r} retrieved={len(retrieved)} "
-                    f"new={added} total={len(state.retrieved_chunks)}"
+                state.final_answer = await self._traced_generate(state)
+                span.update(
+                    output={"iterations_taken": iterations, "answer": state.final_answer.answer},
+                    metadata={
+                        "iterations_taken": iterations,
+                        "rewrites": state.loop_count,
+                        "is_context_sufficient": state.is_context_sufficient,
+                        "query_history": list(state.query_history),
+                        "chunk_count": len(state.retrieved_chunks),
+                    },
                 )
 
-                grade = await self._traced_grade(state, iterations)
-                state.is_context_sufficient = grade.is_relevant
-                if state.is_context_sufficient or state.loop_count >= self._max_loop_count:
-                    break
-
-                state.current_query = await self._traced_rewrite(state, grade.reasoning)
-                state.query_history.append(state.current_query)
-                state.loop_count += 1
-
-            if not state.is_context_sufficient:
-                _logger.warning(
-                    f"max_loop_count={self._max_loop_count} reached without sufficient context; "
-                    "synthesizing best-effort answer."
-                )
-
-            state.final_answer = await self._traced_generate(state)
-            span.update(
-                output={"iterations_taken": iterations, "answer": state.final_answer.answer},
-                metadata={
-                    "iterations_taken": iterations,
-                    "rewrites": state.loop_count,
-                    "is_context_sufficient": state.is_context_sufficient,
-                    "query_history": list(state.query_history),
-                    "chunk_count": len(state.retrieved_chunks),
+            response = AskResponse(
+                query=state.original_query,
+                answer=state.final_answer.answer,
+                citations=list(state.final_answer.citations),
+                iterations_taken=iterations,
+            )
+            yield AgentEvent(
+                type="answer",
+                iteration=iterations,
+                payload=response.model_dump(mode="json"),
+            )
+        except Exception as exc:
+            _logger.error(f"Agentic loop failed at iteration {iterations}: {exc}")
+            if error_holder is not None:
+                error_holder.append(exc)
+            yield AgentEvent(
+                type="error",
+                iteration=iterations,
+                payload={
+                    "detail": _STREAM_ERROR_DETAIL,
+                    "error_type": type(exc).__name__,
                 },
             )
-
-        return AskResponse(
-            query=state.original_query,
-            answer=state.final_answer.answer,
-            citations=list(state.final_answer.citations),
-            iterations_taken=iterations,
-        )
 
     async def _traced_grade(self, state: AgentState, iteration: int) -> GradeResult:
         """Grade the accumulated context inside a Langfuse span.
