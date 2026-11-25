@@ -1,9 +1,11 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
 from ._base import ImmutableModel
 from ._entities import Citation, SourceType
+
+AgentEventType = Literal["rewrite", "retrieve", "grade", "generate", "answer", "error"]
 
 
 class IngestRequest(ImmutableModel):
@@ -27,3 +29,24 @@ class AskResponse(ImmutableModel):
     answer: str
     citations: list[Citation]
     iterations_taken: int = Field(..., ge=1, description="Number of retrieval loops executed")
+
+
+class AgentEvent(ImmutableModel):
+    """Streaming progress or terminal event emitted by ``AgenticLoopService.ask_stream``."""
+
+    type: AgentEventType = Field(
+        ...,
+        description="Lifecycle step name (rewrite, retrieve, grade, generate, answer, or error)",
+    )
+    iteration: int = Field(
+        ...,
+        ge=0,
+        description="1-based retrieve/grade pass number (0 if an error occurs before pass 1)",
+    )
+    payload: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Event-specific data: query text for rewrite/retrieve, is_context_sufficient and "
+            "reasoning for grade, AskResponse fields for answer, or safe detail for error"
+        ),
+    )
